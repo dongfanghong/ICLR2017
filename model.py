@@ -7,10 +7,16 @@ from ops import *
 from utils import *
 import numpy as np
 
-samples_dir = '/atlas/u/dfh13/samples_new'
-#samples_dir = './samples'
-eval_dir = '/atlas/u/dfh13/eval_new'
-log_dir = '/atlas/u/dfh13/logs_new'
+samples_dir = '/atlas/u/dfh13/samples_new2'
+eval_dir = '/atlas/u/dfh13/eval_new2'
+log_dir = '/atlas/u/dfh13/logs_new2'
+
+for path in [samples_dir,eval_dir,log_dir]:
+    try: 
+        os.makedirs(path)
+    except OSError:
+        if not os.path.isdir(path):
+            raise
 
 class DCGAN(object):
     def __init__(self, sess, image_size=108, is_crop=True,
@@ -163,14 +169,16 @@ class DCGAN(object):
         else:
             print(" [!] Load failed...")
 
-        image_list_filename = 'face_list.pkl'
+        image_list_filename = '/atlas/u/dfh13/faces/face_list.pkl'
+        print image_list_filename
         #image_list_filename = '/atlas/u/dfh13/bedroom_list.pkl'
         if (os.path.isfile(image_list_filename)):
             self.data_all = pickle.load(open(image_list_filename,'rb'))
+            print len(self.data_all)
         else:
             print "Start finding images"
             start = time.time()
-            self.data_all = find_files("/afs/cs.stanford.edu/u/dfh13/LSUN/","*.webp")
+            self.data_all = find_files("/atlas/u/dfh13/faces/","*.jpg")
             pickle.dump(self.data_all,open(image_list_filename,'wb'))
             print "Finish finding images in", time.time()-start, 's, find',len(self.data_all),'images'
 
@@ -297,10 +305,10 @@ class DCGAN(object):
             tf.get_variable_scope().reuse_variables()
 
         if True:
-            encoded_patch1 = self.encoder(patch1)
+            #encoded_patch1 = self.encoder(patch1)
             encoded_patch2 = self.encoder(patch2)
-
-            joint = tf.concat(3,[encoded_patch1,encoded_patch2])
+            joint = encoded_patch2
+            #joint = tf.concat(3,[encoded_patch1,encoded_patch2])
 
             h3 = joint
 
@@ -460,7 +468,7 @@ class DCGAN(object):
 
     def retrieve(self):
         print 'Running retrieval task'
-        psize = 96
+        psize = 120
 
         feature = self.encoder_test(self.patch2)
         print feature.get_shape()

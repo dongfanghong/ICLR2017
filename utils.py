@@ -22,7 +22,7 @@ def get_image(image_path, image_size, is_crop=True):
     return transform(imread(image_path), image_size, is_crop)
 
 def get_patches(image_path):
-    return img2patches(imread(image_path),48)
+    return img2patches(imread(image_path),60)
 
 def get_patches_batch(filenames,get_patches):
     patch1_batch = []
