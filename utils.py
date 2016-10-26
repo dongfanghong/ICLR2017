@@ -18,71 +18,22 @@ pp = pprint.PrettyPrinter()
 
 get_stddev = lambda x, k_h, k_w: 1/math.sqrt(k_w*k_h*x.get_shape()[-1])
 
-def label2dxdy(labels):
-  dx_batch = []
-  dy_batch = []
-  dx_list = [-1,-1,-1,0,0,1,1,1]
-  dy_list = [-1,0,1,-1,1,-1,0,1]
-  for label in labels:
-    dx_batch.append(dx_list[label])
-    dy_batch.append(dy_list[label])
-  return np.array(dx_batch),np.array(dy_batch)
-
-def save_prediction(filename,dx_batch_ans,dy_batch_ans,dx_batch_pred,dy_batch_pred):
-  dx_batch_ans = np.array(dx_batch_ans,dtype='int')
-  dy_batch_ans = np.array(dy_batch_ans,dtype='int')
-  dx_batch_pred = np.array(dx_batch_pred,dtype='float')
-  dy_batch_pred = np.array(dy_batch_pred,dtype='float')
-  dx_batch_pred_converted = -(dx_batch_pred<-0.5).astype('int')+(dx_batch_pred>0.5).astype('int')
-  dy_batch_pred_converted = -(dy_batch_pred<-0.5).astype('int')+(dy_batch_pred>0.5).astype('int')
-
-  fout = open(filename,'w')
-  correct = (dx_batch_ans == dx_batch_pred_converted) * (dy_batch_ans == dy_batch_pred_converted)
-  for i in xrange(len(dx_batch_ans)):
-    print >>fout,dx_batch_ans[i],dy_batch_ans[i],dx_batch_pred[i],dy_batch_pred[i]
-  fout.close()
-  #print correct.shape
-  #print dx_batch_ans.shape
-  #print correct.sum(),len(dx_batch_ans)
-  return float(correct.sum())/len(dx_batch_ans)
-
-def save_prediction_2(filename,dx_batch_ans,dy_batch_ans,dx_batch_pred,dy_batch_pred):
-  fout = open(filename,'w')
-  correct = (dx_batch_ans == dx_batch_pred) * (dy_batch_ans == dy_batch_pred)
-  for i in xrange(len(dx_batch_ans)):
-    print >>fout,dx_batch_ans[i],dy_batch_ans[i],dx_batch_pred[i],dy_batch_pred[i]
-  fout.close()
-  #print correct.shape
-  #print dx_batch_ans.shape
-  #print correct.sum(),len(dx_batch_ans)
-  return float(correct.sum())/len(dx_batch_ans)
-
 def get_image(image_path, image_size, is_crop=True):
     return transform(imread(image_path), image_size, is_crop)
 
-def get_patches_1(image_path,dx,dy):
-    return img2patches_1(imread(image_path),48,dx,dy)
+def get_patches(image_path):
+    return img2patches(imread(image_path),48)
 
-def get_patches_2(image_path,dx,dy):
-    return img2patches_2(imread(image_path),48,dx,dy)
-
-def get_patches_batch(filenames,dx_in,dy_in,get_patches):
+def get_patches_batch(filenames,get_patches):
     patch1_batch = []
     patch2_batch = []
-    dx_batch = []
-    dy_batch = []
-    #mask_batch = []
+
     for filename in filenames:
-      patch1, patch2, dx, dy = get_patches(filename,dx_in,dy_in)
-      #print filename,patch1.shape,patch2.shape,dx,dy
+      patch1, patch2 = get_patches(filename)
       patch1_batch.append(patch1)
       patch2_batch.append(patch2)
-      dx_batch.append(dx)
-      dy_batch.append(dy)
-      #mask_batch.append(mask)
-    #print dx_batch
-    #print dy_batch
-    return np.array(patch1_batch,dtype='float32'), np.array(patch2_batch,dtype='float32'), np.array(dx_batch,dtype='float32'), np.array(dy_batch,dtype='float32')#, np.array(mask_batch,dtype='float32')
+
+    return np.array(patch1_batch,dtype='float32'), np.array(patch2_batch,dtype='float32')
 
 def save_images(images, size, image_path):
     return imsave(inverse_transform(images), size, image_path)
@@ -272,217 +223,25 @@ def find_files(directory, pattern):
           print len(result)
   return result
 
-def img2patches_1(img_in,psize,dx_in=0,dy_in=0):
-  h, w = img_in.shape[:2]
-  assert h >= psize * 3 and w >= psize * 3
 
-  #img = img_in.astype('float')
-  img = img_in.copy()
-  if len(img.shape) == 2:
-    img = np.dstack([img,img,img])
-  #img = img / 127.5 - 1
-
-  start1_x = psize
-  start1_y = psize
-  end1_x = h - 2*psize
-  end1_y = w - 2*psize
-  x1 = randint(start1_x,end1_x)
-  y1 = randint(start1_y,end1_y)
-
-  if True:
-    x1 = (h-psize)/2
-    y1 = (w-psize)/2
-  
-  dx = dx_in
-  dy = dy_in
-  while dx == 0 and dy == 0:
-    dx = randint(-1,1)
-    dy = randint(-1,1)
-
-  disp = 8
-
-  if dx == -1:
-    start2_x = max(x1 - psize - disp, 0)
-    end2_x = x1 - psize
-  elif dx == 0:
-    start2_x = x1 - disp / 2
-    end2_x = x1 + disp / 2
-  else:
-    start2_x = x1 + psize
-    end2_x = min(x1 + psize + disp, h - psize)
-
-  if dy == -1:
-    start2_y = max(y1 - psize - disp, 0)
-    end2_y = y1 - psize
-  elif dy == 0:
-    start2_y = y1 - disp / 2
-    end2_y = y1 + disp / 2
-  else:
-    start2_y = y1 + psize
-    end2_y = min(y1 + psize + disp, w - psize)
-
-  x2 = randint(start2_x,end2_x)
-  y2 = randint(start2_y,end2_y)
-
-  if False:
-    x1 = (h-psize)/2
-    y1 = (w-psize)/2
-    x2 = x1+psize
-    y2 = y1
-  patch1 = img[x1:x1+psize,y1:y1+psize]
-  patch2 = img[x2:x2+psize,y2:y2+psize]
-
-  #patch1 = tf.slice(img,[x1,y1,0],[psize,psize,3])
-  #patch2 = tf.slice(img,[x2,y2,0],[psize,psize,3])
-
-  patch1 = scipy.misc.imresize(patch1, [64,64])
-  patch2 = scipy.misc.imresize(patch2, [64,64])
-
-  patch1 = patch1.astype('float32') / 127.5 - 1
-  patch2 = patch2.astype('float32') / 127.5 - 1
-  '''
-  mask_whole = np.zeros((h,w),dtype='int')
-  mask_whole[x1:x1+psize,y1:y1+psize] = 1
-  mask = mask_whole[x2:x2+psize,y2:y2+psize]
-  '''
-  return patch1, patch2, dx, dy#, mask
-  #img = scipy.misc.imresize(img, [64,64])
-  #img = img.astype('float32') / 127.5 - 1
-  #return img, img, 0, 0
-
-def img2patches_3(img_in,psize,dx_in=0,dy_in=0):
-  assert dx_in == 0
-  assert dy_in == 0
+def img2patches(img_in,psize):
   h,w = img_in.shape[:2]
-  assert h>=psize and w>=psize
+  assert h >= 2*psize and w >= 2*psize
   img = img_in.copy()
   if len(img.shape) == 2:
     img = np.dstack([img,img,img])
 
-  #x1 = randint(0,h-psize)
-  #y1 = randint(0,w-psize)
   x1 = (h-psize)/2
   y1 = (w-psize)/2
-  x2 = randint(0,h-psize)
-  y2 = randint(0,w-psize)
-
+  x2 = h/2-psize
+  y2 = w/2-psize
   patch1 = img[x1:x1+psize,y1:y1+psize]
-  patch2 = img[x2:x2+psize,y2:y2+psize]
-  #print patch1.shape,patch2.shape
+  patch2 = img[x2:x2+psize*2,y2:y2+psize*2]
+
   patch1 = scipy.misc.imresize(patch1, [64,64])
   patch2 = scipy.misc.imresize(patch2, [64,64])
 
   patch1 = patch1.astype('float32') / 127.5 - 1
   patch2 = patch2.astype('float32') / 127.5 - 1
 
-  dx = float(x2-x1)/psize
-  dy = float(y2-y1)/psize
-
-  return patch1,patch2,dx,dy
-
-def img2patches_2(img_in,psize,dx_in=0,dy_in=0):
-  h,w = img_in.shape[:2]
-  #assert h >= 2*psize and w >= 2*psize
-  img = img_in.copy()
-  if len(img.shape) == 2:
-    img = np.dstack([img,img,img])
-
-  '''
-  disp = int(0.75*psize)
-  if dx_in == 0:
-    #x1 = randint(0,h-psize)
-    x1 = (h-psize)/2
-    #x2 = randint(0,h-psize)
-    x2 = x1 + randint(-disp,disp)
-  else:
-    x1 = randint(0,h-psize-int(dx_in*psize))
-    x2 = int(x1+dx_in*psize)
-
-  if dy_in == 0:
-    #y1 = randint(0,w-psize)
-    y1 = (w-psize)/2
-    #y2 = randint(0,w-psize)
-    y2 = y1 + randint(-disp,disp)
-  else:
-    y1 = randint(0,w-psize-int(dy_in*psize))
-    y2 = int(y1+dy_in*psize)
-  '''
-  #print h,w,psize
-  #print x1,y1
-  #print x2,y2
-  x1 = (h-psize)/2
-  y1 = (w-psize)/2
-
-  wsize = 96
-  x2 = (h-wsize)/2
-  y2 = (w-wsize)/2
-  patch1 = img[x1:x1+psize,y1:y1+psize]
-  patch2 = img[x2:x2+wsize,y2:y2+wsize]
-  #print patch1.shape,patch2.shape
-  patch1 = scipy.misc.imresize(patch1, [64,64])
-  patch2 = scipy.misc.imresize(patch2, [64,64])
-
-  patch1 = patch1.astype('float32') / 127.5 - 1
-  patch2 = patch2.astype('float32') / 127.5 - 1
-
-  dx = float(x2-x1)/psize
-  dy = float(y2-y1)/psize
-  '''
-  mask_whole = np.zeros((h,w),dtype='int')
-  mask_whole[x1:x1+psize,y1:y1+psize] = 1
-  mask = mask_whole[x2:x2+psize,y2:y2+psize]
-  mask = (scipy.misc.imresize(mask, [64,64])!=0).astype('float32')
-  #print mask.max(),mask.min(),dx,dy
-  mask = mask * 1.0 + 0
-  mask = np.repeat(mask[...,None],3,axis=2)
-  #print mask.shape,mask.dtype,mask.max(),mask.min()
-  '''
-  return patch1,patch2,dx,dy
-
-'''
-def img2patches(img,imsize,psize):
-  assert imsize >= psize * 3
-  start1 = psize
-  end1 = imsize - 2*psize
-  x1 = randint(start1,end1)
-  y1 = randint(start1,end1)
-
-  dx = 0
-  dy = 0
-  while dx == 0 and dy == 0:
-    dx = randint(-1,1)
-    dy = randint(-1,1)
-
-  disp = 4
-
-  if dx == -1:
-    start2_x = max(x1 - psize - disp, 0)
-    end2_x = x1 - psize
-  elif dx == 0:
-    start2_x = x1 - disp / 2
-    end2_x = x1 + disp / 2
-  else:
-    start2_x = x1 + psize
-    end2_x = min(x1 + psize + disp, imsize - psize)
-
-  if dy == -1:
-    start2_y = max(y1 - psize - disp, 0)
-    end2_y = y1 - psize
-  elif dy == 0:
-    start2_y = y1 - disp / 2
-    end2_y = y1 + disp / 2
-  else:
-    start2_y = y1 + psize
-    end2_y = min(y1 + psize + disp, imsize - psize)
-
-  x2 = randint(start2_x,end2_x)
-  y2 = randint(start2_y,end2_y)
-
-  #patch1 = img[x1:x1+psize,y1:y1+psize]
-  #patch2 = img[x2:x2+psize,y2:y2+psize]
-
-  patch1 = tf.slice(img,[x1,y1,0],[psize,psize,3])
-  patch2 = tf.slice(img,[x2,y2,0],[psize,psize,3])
-
-  return patch1, patch2, dx, dy
-'''
+  return patch1,patch2
