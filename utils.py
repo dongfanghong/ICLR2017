@@ -267,6 +267,37 @@ def img2noise(img_in, noise_ratio=0.5):
   patch2 = img_in.astype('float32') / 127.5 - 1
   return patch1, patch2
 
+def img2downsampled(img_in, down_sample_level, smooth=True):
+  """
+  When smooth is false does:
+  Returns a version of the image that had been downsampled "down_sample_level"
+  times and then upsampled back to the original size
+  E.g. when down_smaple_level = 1, the image will be divided into blocks each with
+  4 pixels in them, and those values will be replaced with the average.
+
+  When smooth is true, the image is upsampled with bilinear interpolation, so your output is blurred instead of blocky
+
+  This is written in a way that supports non-integer down_sample_level, but then there will be border effects
+  """
+  img = img_in.copy()
+  h,w = img_in.shape[:2]
+  assert h >= 64 and w >= 64
+  assert down_sample_level >= 0 and down_sample_level <= 6
+  assert img.dtype == np.uint8
+
+  down_sample_size = int(np.floor(64 / 2**down_sample_level))
+  
+  patch2 = scipy.misc.imresize(img, [64,64])
+  interp = 'bilinear'
+  if not smooth:
+    interp = 'nearest'
+  patch1 = scipy.misc.imresize(patch2, [down_sample_size, down_sample_size], interp= interp)
+  patch1 = scipy.misc.imresize(patch1, [64, 64], interp = interp)
+
+  patch1 = patch1.astype('float32') / 127.5 - 1
+  patch2 = patch2.astype('float32') / 127.5 - 1
+
+  return patch1,patch2
 
 
 
