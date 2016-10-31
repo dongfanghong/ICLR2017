@@ -1,6 +1,3 @@
-"""
-Some codes from https://github.com/Newmu/dcgan_code
-"""
 import math
 import json
 import random
@@ -22,7 +19,7 @@ def get_image(image_path, image_size, is_crop=True):
     return transform(imread(image_path), image_size, is_crop)
 
 def get_patches(image_path):
-    return img2patches(imread(image_path),60)
+    return img2patches(imread(image_path),32)
 
 def get_patches_batch(filenames,get_patches):
     patch1_batch = []

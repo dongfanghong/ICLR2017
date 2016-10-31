@@ -7,9 +7,9 @@ from ops import *
 from utils import *
 import numpy as np
 
-samples_dir = '/atlas/u/dfh13/samples_new2'
-eval_dir = '/atlas/u/dfh13/eval_new2'
-log_dir = '/atlas/u/dfh13/logs_new2'
+samples_dir = '/atlas/u/nj/iclr2017/imagenet/samples_new2'
+eval_dir = '/atlas/u/nj/iclr2017/imagenet/eval_new2'
+log_dir = '/atlas/u/nj/iclr2017/imagenet/logs_new2'
 
 for path in [samples_dir,eval_dir,log_dir]:
     try: 
@@ -19,7 +19,7 @@ for path in [samples_dir,eval_dir,log_dir]:
             raise
 
 class DCGAN(object):
-    def __init__(self, sess, image_size=108, is_crop=True,
+    def __init__(self, sess, image_size=64, is_crop=True,
                  batch_size=36, sample_size = 64, image_shape=[64, 64, 3],
                  y_dim=None, z_dim=100, gf_dim=64, df_dim=64,
                  gfc_dim=1024, dfc_dim=1024, c_dim=3, dataset_name='default',
@@ -169,7 +169,8 @@ class DCGAN(object):
         else:
             print(" [!] Load failed...")
 
-        image_list_filename = '/atlas/u/dfh13/faces/face_list.pkl'
+        #image_list_filename = '/atlas/u/dfh13/faces/face_list.pkl'
+        image_list_filename = '/atlas/u/nj/iclr2017/imagenet/image_list.pkl'
         print image_list_filename
         #image_list_filename = '/atlas/u/dfh13/bedroom_list.pkl'
         if (os.path.isfile(image_list_filename)):
@@ -178,7 +179,7 @@ class DCGAN(object):
         else:
             print "Start finding images"
             start = time.time()
-            self.data_all = find_files("/atlas/u/dfh13/faces/","*.jpg")
+            self.data_all = find_files("/atlas/u/nj/imagenet/train64x64/","*.png")
             pickle.dump(self.data_all,open(image_list_filename,'wb'))
             print "Finish finding images in", time.time()-start, 's, find',len(self.data_all),'images'
 
@@ -491,5 +492,5 @@ class DCGAN(object):
         #feat_list = np.array(feat_list)
         #np.save('/atlas/u/dfh13/feat_database',feat_list)
         print 'Dumping result'
-        pickle.dump(feat_list,open('/atlas/u/dfh13/'+self.dataset_name+'_feat_database.pkl','wb'))
+        pickle.dump(feat_list,open('/atlas/u/nj/iclr2017/imagenet/'+self.dataset_name+'_feat_database.pkl','wb'))
 
