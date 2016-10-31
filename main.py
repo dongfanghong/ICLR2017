@@ -6,19 +6,27 @@ import tensorflow as tf
 
 #############################################################
 
-CHECKPOINT_DIR = "/atlas/u/nj/imagenet/checkpoints"
-SAMPLE_DIR = "atlas/u/nj/imagenet/samples"
-DATASET = "imagenet"
-IMAGE_SIZE = 64
+# Set flags
+EPOCH = 25
+LEARNING_RATE = 1e-4
+BETA1 = 0.5
+TRAIN_SIZE = np.inf
 BATCH_SIZE = 36
-
+IMAGE_SIZE = 64
+DATASET = "imagenet"
+CHECKPOINT_DIR = '/atlas/u/nj/iclr2017/imagenet/64x64_noise/checkpoints'
+SAMPLE_DIR = '/atlas/u/nj/iclr2017/imagenet/64x64_noise/samples'
+IS_TRAIN = True
+IS_CROP = True
+VISUALIZE = False
+ 
 #############################################################
 
 flags = tf.app.flags
-flags.DEFINE_integer("epoch", 25, "Epoch to train [25]")
-flags.DEFINE_float("learning_rate", 1e-4, "Learning rate of for adam [0.0002]")
-flags.DEFINE_float("beta1", 0.5, "Momentum term of adam [0.5]")
-flags.DEFINE_integer("train_size", np.inf, "The size of train images [np.inf]")
+flags.DEFINE_integer("epoch", EPOCH, "Epoch to train [25]")
+flags.DEFINE_float("learning_rate", LEARNING_RATE, "Learning rate of for adam [0.0002]")
+flags.DEFINE_float("beta1", BETA1, "Momentum term of adam [0.5]")
+flags.DEFINE_integer("train_size", TRAIN_SIZE, "The size of train images [np.inf]")
 flags.DEFINE_integer("batch_size", BATCH_SIZE, "The size of batch images [64]")
 flags.DEFINE_integer(
     "image_size", IMAGE_SIZE,
@@ -32,11 +40,11 @@ flags.DEFINE_string(
     "sample_dir", SAMPLE_DIR,
     "Directory name to save the image samples [samples]")
 flags.DEFINE_boolean(
-    "is_train", True, "True for training, False for testing [False]")
+    "is_train", IS_TRAIN, "True for training, False for testing [False]")
 flags.DEFINE_boolean(
-    "is_crop", True, "True for training, False for testing [False]")
+    "is_crop", IS_CROP, "True for training, False for testing [False]")
 flags.DEFINE_boolean(
-    "visualize", False, "True for visualizing, False for nothing [False]")
+    "visualize", VISUALIZE, "True for visualizing, False for nothing [False]")
 FLAGS = flags.FLAGS
 
 #############################################################

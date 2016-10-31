@@ -19,7 +19,8 @@ def get_image(image_path, image_size, is_crop=True):
     return transform(imread(image_path), image_size, is_crop)
 
 def get_patches(image_path):
-    return img2patches(imread(image_path),32)
+    return img2noise(imread(image_path), noise_ratio=0.5)
+    #return img2patches(imread(image_path),32)
 
 def get_patches_batch(filenames,get_patches):
     patch1_batch = []
@@ -242,3 +243,35 @@ def img2patches(img_in,psize):
   patch2 = patch2.astype('float32') / 127.5 - 1
 
   return patch1,patch2
+
+
+def img2noise(img_in, noise_ratio=0.5):
+  """
+  Takes an input image and returns a noisy version of the image and
+  the original image.
+  """
+  h,w = img_in.shape[:2]
+  img = img_in.copy()
+  # Create noise mask
+  num_replace = h * w * noise_ratio
+  noise_mask = [0] * int(num_replace) + [1] * (h * w - int(num_replace))
+  random.shuffle(noise_mask)
+  noise_mask = np.array(noise_mask).reshape(h,w)
+  noise_mask = np.dstack([noise_mask, noise_mask, noise_mask])
+  # Create noise array
+  noise_array = np.random.randint(low=0, high=256, size=img.shape)
+  # Zero out some elements of array and add noise there instead
+  img = img * noise_mask + np.logical_not(noise_mask) * noise_array
+  # Normalize to between 0-1
+  patch1 = img.astype('float32') / 127.5 - 1
+  patch2 = img_in.astype('float32') / 127.5 - 1
+  return patch1, patch2
+
+
+
+
+
+
+
+
+

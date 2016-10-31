@@ -7,9 +7,9 @@ from ops import *
 from utils import *
 import numpy as np
 
-samples_dir = '/atlas/u/nj/iclr2017/imagenet/samples_new2'
-eval_dir = '/atlas/u/nj/iclr2017/imagenet/eval_new2'
-log_dir = '/atlas/u/nj/iclr2017/imagenet/logs_new2'
+samples_dir = '/atlas/u/nj/iclr2017/imagenet/64x64_noise/samples'
+eval_dir = '/atlas/u/nj/iclr2017/imagenet/64x64_noise/eval'
+log_dir = '/atlas/u/nj/iclr2017/imagenet/64x64_noise/logs'
 
 for path in [samples_dir,eval_dir,log_dir]:
     try: 
@@ -25,88 +25,97 @@ class DCGAN(object):
                  gfc_dim=1024, dfc_dim=1024, c_dim=3, dataset_name='default',
                  checkpoint_dir=None):
         """
-
         Args:
             sess: TensorFlow session
-            batch_size: The size of batch. Should be specified before training.
+            image_size: The size of the image. [64]
+            is_crop: NOT SURE YET
+            batch_size: The size of batch. Should be specified
+            before training. [36]
+            sample_size: NOT SURE YET
+            image_shape: NOTE SURE YET
             y_dim: (optional) Dimension of dim for y. [None]
             z_dim: (optional) Dimension of dim for Z. [100]
-            gf_dim: (optional) Dimension of gen filters in first conv layer. [64]
-            df_dim: (optional) Dimension of discrim filters in first conv layer. [64]
-            gfc_dim: (optional) Dimension of gen untis for for fully connected layer. [1024]
-            dfc_dim: (optional) Dimension of discrim units for fully connected layer. [1024]
+            gf_dim: (optional) Dimension of generator filters in first conv
+            layer. [64]
+            df_dim: (optional) Dimension of discriminator filters in first conv
+            layer. [64]
+            gfc_dim: (optional) Dimension of generator units for for fully
+            connected layer. [1024]
+            dfc_dim: (optional) Dimension of discriminator units for fully
+            connected layer. [1024]
             c_dim: (optional) Dimension of image color. [3]
+            dataset_name: NOT SURE YET
+            checkpoint_dir: Directory to save checkpoints. [None]
         """
         self.sess = sess
+        self.image_size = image_size
         self.is_crop = is_crop
         self.batch_size = batch_size
-        self.image_size = image_size
         self.sample_size = sample_size
         self.image_shape = image_shape
-        self.dataset_name = dataset_name
-
-        self.validation_size = self.batch_size * 30
-
         self.y_dim = y_dim
         self.z_dim = z_dim
-
         self.gf_dim = gf_dim
         self.df_dim = df_dim
-
         self.gfc_dim = gfc_dim
         self.dfc_dim = dfc_dim
-
-        self.c_dim = 3
-
-        # batch normalization : deals with poor initialization helps gradient flow
+        self.c_dim = c_dim
+        self.dataset_name = dataset_name
+        self.checkpoint_dir = checkpoint_dir
+        # Size of validation set
+        self.validation_size = self.batch_size * 30
+        # Batch normalization: deals with poor initialization and
+        # helps gradient flow
         self.d_bn1 = batch_norm(name='d_bn1')
         self.d_bn2 = batch_norm(name='d_bn2')
-
         if not self.y_dim:
             self.d_bn3 = batch_norm(name='d_bn3')
-
         self.g_bn0 = batch_norm(name='g_bn0')
         self.g_bn1 = batch_norm(name='g_bn1')
         self.g_bn2 = batch_norm(name='g_bn2')
-
         if not self.y_dim:
             self.g_bn3 = batch_norm(name='g_bn3')
-
         self.e_bn1 = batch_norm(name='e_bn1')
         self.e_bn1_1 = batch_norm(name='e_bn1_1')
         self.e_bn1_2 = batch_norm(name='e_bn1_2')
         self.e_bn2 = batch_norm(name='e_bn2')
         self.e_bn3 = batch_norm(name='e_bn3')
-
-        self.dataset_name = dataset_name
-        self.checkpoint_dir = checkpoint_dir
-
+        # SOMETHING SOMETHING NOT SURE YET
         self.first_encoder = True
         self.first_encoder2 = True
-
+        # Build the models
         self.build_model()
 
     def build_model(self):
+        """
+        Sets up the generator and discriminator.
+        """
+        # Data to condition on
         if self.y_dim:
             self.y= tf.placeholder(tf.float32, [None, self.y_dim], name='y')
         '''
-        self.images = tf.placeholder(tf.float32, [self.batch_size] + self.image_shape,
-                                    name='real_images')
-        self.sample_images= tf.placeholder(tf.float32, [self.sample_size] + self.image_shape,
-                                        name='sample_images')
+        # Old stuff: Real images and sample images
+        self.images = tf.placeholder(
+            tf.float32, [self.batch_size] + self.image_shape,
+            name='real_images')
+        self.sample_images= tf.placeholder(
+            tf.float32, [self.sample_size] + self.image_shape,
+            name='sample_images')
         '''
-        self.patch1 = tf.placeholder(tf.float32, [self.batch_size] + self.image_shape, name='patch1')
-        self.patch2 = tf.placeholder(tf.float32, [self.batch_size] + self.image_shape, name='patch2')
-
+        # Patches: patch1 is conditional data, patch2 is full image
+        self.patch1 = tf.placeholder(
+            tf.float32, [self.batch_size] + self.image_shape, name='patch1')
+        self.patch2 = tf.placeholder(
+            tf.float32, [self.batch_size] + self.image_shape, name='patch2')
+        # Random code and summary
         self.z = tf.placeholder(tf.float32, [self.batch_size, self.z_dim],
                                 name='z')
-
         self.z_sum = tf.histogram_summary("z", self.z)
-
+        # Generator
         self.G = self.generator(self.patch1, self.z)
-        
+        # Discriminator
         self.D, self.D_logits = self.discriminator(self.patch1, self.patch2)
-        
+        # 
         self.sampler = self.sampler(self.patch1, self.z)
         self.D_, self.D_logits_ = self.discriminator(self.patch1, self.G, reuse=True)
 
@@ -170,7 +179,7 @@ class DCGAN(object):
             print(" [!] Load failed...")
 
         #image_list_filename = '/atlas/u/dfh13/faces/face_list.pkl'
-        image_list_filename = '/atlas/u/nj/iclr2017/imagenet/image_list.pkl'
+        image_list_filename = '/atlas/u/nj/iclr2017/imagenet/64x64_noise/image_list.pkl'
         print image_list_filename
         #image_list_filename = '/atlas/u/dfh13/bedroom_list.pkl'
         if (os.path.isfile(image_list_filename)):
@@ -179,9 +188,9 @@ class DCGAN(object):
         else:
             print "Start finding images"
             start = time.time()
-            self.data_all = find_files("/atlas/u/nj/imagenet/train64x64/","*.png")
+            self.data_all = find_files("/atlas/u/nj/imagenet/train_64x64/","*.png")
             pickle.dump(self.data_all,open(image_list_filename,'wb'))
-            print "Finish finding images in", time.time()-start, 's, find',len(self.data_all),'images'
+            print "Finish finding images in", time.time()-start, 's, found',len(self.data_all),'images'
 
         def train_loop():
             sample_z = np.random.uniform(-1, 1, size=(self.sample_size , self.z_dim))
@@ -492,5 +501,5 @@ class DCGAN(object):
         #feat_list = np.array(feat_list)
         #np.save('/atlas/u/dfh13/feat_database',feat_list)
         print 'Dumping result'
-        pickle.dump(feat_list,open('/atlas/u/nj/iclr2017/imagenet/'+self.dataset_name+'_feat_database.pkl','wb'))
+        pickle.dump(feat_list,open('/atlas/u/nj/iclr2017/imagenet/64x64_noise/'+self.dataset_name+'_feat_database.pkl','wb'))
 
