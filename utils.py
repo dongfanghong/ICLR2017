@@ -284,6 +284,7 @@ def img2downsampled(img_in, down_sample_level, smooth=True):
   assert h >= 64 and w >= 64
   assert down_sample_level >= 0 and down_sample_level <= 6
   assert img.dtype == np.uint8
+  assert not smooth, "Fang hong recently discovered a bug that using interoplation other than nearest results in the image shifting, with that being said, this may be irrelevant because the image we condition on is transformed into a 4x4x512 block anyway.  If you want to use smooth you can, just comment this out."
 
   down_sample_size = int(np.floor(64 / 2**down_sample_level))
   
