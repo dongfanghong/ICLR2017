@@ -116,6 +116,13 @@ def make_plot_from_features(features_file, labels_file, out_file_name="phi_plot"
   print("Title is: ", title)
 
   points = sorted(points)
+  cache_points = np.zeros((len(points), 2))
+  for i, xy in enumerate(points):
+    cache_points[i, 0] = xy[0]
+    cache_points[i, 1] = xy[1]
+
+  np.save(out_file_name + "_points.npy", cache_points)
+
   print("Points:")
   print(points)
   x_points = np.array([x for x, y in points])
