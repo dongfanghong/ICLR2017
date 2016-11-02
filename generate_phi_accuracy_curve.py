@@ -48,10 +48,20 @@ def single_extract_feature(checkpoint_dir, phi_param_val):
           checkpoint_dir=checkpoint_dir)
     dcgan.load(checkpoint_dir)
 
-    # TODO read all the images from /atlas/u/nj/imagenet/ILSVRC2012_img_val_64x64 in the same order as they are in labels and extract
+    # read all the images from /atlas/u/nj/imagenet/ILSVRC2012_img_val_64x64 in the same order as they are in labels and extract
     # The features, make sure they get saved in the same order as labels is in
-    file_names_list = find_files(TEST_DATA_DIR, '*.png')
-    # TODO make sure this list is sorted in to correct order    
+    def extract_image_number(image_file_name):
+      # exmaple name: ILSVRC2012_val_00000001.JPEG
+      number_and_extension = image_file_name.split('_')[-1]
+      number = number_and_extension.split('.')[0]
+      return int(number)
+
+    # TODO do this once somewhere else instead of multiple times here
+    file_names_list = find_files(TEST_DATA_DIR, '*.JPEG') # glob should work if this does not
+    print("Number of file names found when extracting features: ", len(file_names_list))
+    file_names_list = [(extract_image_number(name), name) for name in file_names_list]
+    file_names_list.sort()
+    file_names_list = [name for number, name in file_names_list]
 
     dcgan.extract_features(file_names_list, str(phi_param_val) + '_features_' + checkpoint_dir + '.npy')
 

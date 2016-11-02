@@ -511,6 +511,36 @@ class DCGAN(object):
         """
         # TODO enforce order consistency between output and image_file_name_list
 
+        print('Running extract features')
+        psize=120 # TODO remove this
+
+        feature = self.encoder_test(self.patch2)
+        print feature.get_shape()
+        feature_pooled = tf.nn.max_pool(feature, ksize=[1,4,4,1], strides=[1,1,1,1], padding='VALID')
+        print feature_pooled.get_shape()
+
+        feat_list = []
+
+        # TODO handle batch size not being a factor of the data size
+        num_data_points = len(image_file_name_list)
+
+        batch_idxs = num_data_points/self.batch_size
+        for idx in xrange(batch_idxs):
+            print(out_name, idx, "out of", num_data_points)
+            batch_files = image_file_name_list[idx*self.batch_size:(idx+1)*self.batch_size]
+            # TODO the calls to get_image need to be changed to properly reflect the lack of need for a phi
+            img_batch = [get_image(filename, psize, is_crop=True) for filename in batch_files]
+            img_batch = np.array(img_batch).astype(np.float32)
+            feat = self.sess.run([feature_pooled],feed_dict={self.patch2:img_batch})
+            feat = np.squeeze(feat)
+            feat_list.extend(feat)
+            #img_list.extend(batch_files)
+
+        #feat_list = np.array(feat_list)
+        #np.save('/atlas/u/dfh13/feat_database',feat_list)
+        # TODO change how the output is saved
+        print 'Dumping result'
+        pickle.dump(feat_list,open('/atlas/u/nj/iclr2017/imagenet/64x64_noise/'+self.dataset_name+'_feat_database.pkl','wb'))
 
         # TODO see self.retrieve - keep in mind we only extract features with 
         # the discriminator, so we don't need phi for feature extraction
