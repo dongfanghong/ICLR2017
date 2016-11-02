@@ -4,19 +4,37 @@ import time
 import argparse
 import os
 from multiprocessing import Pool
+import scipy.misc
 
 
 def resize_and_crop_image(input_file, output_file,
-                          pixel_size=256, fit=True):
+                          pixel_size=64, fit=True):
     """
     Downsample the image.
     """
+    # Check if image is grayscale when loading, convert to RGB if necessary
+    gray = False
+    img = scipy.misc.imread(input_file)
+    if len(img.shape) < 3:
+        gray = True
     img = Image.open(input_file)
+    if gray:
+        img_rgb = Image.new('RGB', img.size)
+        img_rgb.paste(img)
+        img = img_rgb
+    # Check if image is too small
+    if min(img.size) < pixel_size:
+        factor = 1
+        min_size = min(img_size)
+        while min_size * factor < pixel_size:
+            factor += 1
+        img = img.resize((img.size[0] * factor, img.size[1] * factor),
+                         Image.BILINEAR)
     box = (pixel_size, pixel_size)
     # Preresize image with factor 2, 4, 8 and fast algorithm
     factor = 1
     while (img.size[0] / factor > 2 * box[0] and
-           img.size[1] * 2 / factor > 2 * box[1]):
+           img.size[1] / factor > 2 * box[1]):
         factor *= 2
     if factor > 1:
         img.thumbnail((img.size[0] / factor, img.size[1] / factor),
@@ -57,7 +75,7 @@ def process_images():
     Processes folder of images and saves them.
     """
     t0 = time.time()
-    pool = Pool(processes=16)
+    pool = Pool(processes=args.threads)
     for idx, in_fn in enumerate(glob.glob(args.input_dir + '*')):
         pool.apply_async(func=process_image, args=(idx, in_fn, t0))
     pool.close()
@@ -70,7 +88,7 @@ if __name__ == '__main__':
     """
     For example, run:
     python preprocess.py /atlas/u/nj/imagenet/test_orig/
-        /atlas/u/nj/imagenet/test_small/ 64
+        /atlas/u/nj/imagenet/test_small/ 64 --threads 16
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -80,5 +98,8 @@ if __name__ == '__main__':
     parser.add_argument(
         'pixel_size', help='The pixel side length after processing', type=int,
         default=64)
+    parser.add_argument(
+        '--threads', help='The number of threads to use', type=int,
+        default=1)
     args = parser.parse_args()
     process_images()

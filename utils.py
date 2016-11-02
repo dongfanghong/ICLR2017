@@ -19,7 +19,7 @@ def get_image(image_path, image_size, is_crop=True):
     return transform(imread(image_path), image_size, is_crop)
 
 def get_patches(image_path):
-    return img2noise(imread(image_path), noise_ratio=0.5)
+    return img2noise(imread(image_path), noise_ratio=0.25)
     #return img2patches(imread(image_path),32)
 
 def get_patches_batch(filenames,get_patches):

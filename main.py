@@ -13,20 +13,22 @@ BETA1 = 0.5
 TRAIN_SIZE = np.inf
 BATCH_SIZE = 36
 IMAGE_SIZE = 64
-DATASET = "imagenet"
-CHECKPOINT_DIR = '/atlas/u/nj/iclr2017/imagenet/64x64_noise/checkpoints'
-SAMPLE_DIR = '/atlas/u/nj/iclr2017/imagenet/64x64_noise/samples'
+DATASET = 'imagenet'
+CHECKPOINT_DIR = '/atlas/u/nj/iclr2017/imagenet/64x64_0.25/checkpoints'
+SAMPLE_DIR = '/atlas/u/nj/iclr2017/imagenet/64x64_0.25/samples'
 IS_TRAIN = True
 IS_CROP = True
 VISUALIZE = False
- 
+
 #############################################################
 
 flags = tf.app.flags
 flags.DEFINE_integer("epoch", EPOCH, "Epoch to train [25]")
-flags.DEFINE_float("learning_rate", LEARNING_RATE, "Learning rate of for adam [0.0002]")
+flags.DEFINE_float(
+    "learning_rate", LEARNING_RATE, "Learning rate of for adam [0.0002]")
 flags.DEFINE_float("beta1", BETA1, "Momentum term of adam [0.5]")
-flags.DEFINE_integer("train_size", TRAIN_SIZE, "The size of train images [np.inf]")
+flags.DEFINE_integer(
+    "train_size", TRAIN_SIZE, "The size of train images [np.inf]")
 flags.DEFINE_integer("batch_size", BATCH_SIZE, "The size of batch images [64]")
 flags.DEFINE_integer(
     "image_size", IMAGE_SIZE,
@@ -58,7 +60,7 @@ def main(_):
     if not os.path.exists(FLAGS.sample_dir):
         os.makedirs(FLAGS.sample_dir)
     # Start training
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.333)
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.25)
     with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
         if FLAGS.dataset == 'mnist':
             dcgan = DCGAN(

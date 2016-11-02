@@ -7,9 +7,12 @@ from ops import *
 from utils import *
 import numpy as np
 
-samples_dir = '/atlas/u/nj/iclr2017/imagenet/64x64_noise/samples'
-eval_dir = '/atlas/u/nj/iclr2017/imagenet/64x64_noise/eval'
-log_dir = '/atlas/u/nj/iclr2017/imagenet/64x64_noise/logs'
+#############################################################
+
+# Setting and creating (if necessary) directories
+samples_dir = '/atlas/u/nj/iclr2017/imagenet/64x64_0.25/samples'
+eval_dir = '/atlas/u/nj/iclr2017/imagenet/64x64_0.25/eval'
+log_dir = '/atlas/u/nj/iclr2017/imagenet/64x64_0.25/logs'
 
 for path in [samples_dir,eval_dir,log_dir]:
     try: 
@@ -17,6 +20,8 @@ for path in [samples_dir,eval_dir,log_dir]:
     except OSError:
         if not os.path.isdir(path):
             raise
+
+#############################################################
 
 class DCGAN(object):
     def __init__(self, sess, image_size=64, is_crop=True,
@@ -179,7 +184,7 @@ class DCGAN(object):
             print(" [!] Load failed...")
 
         #image_list_filename = '/atlas/u/dfh13/faces/face_list.pkl'
-        image_list_filename = '/atlas/u/nj/iclr2017/imagenet/64x64_noise/image_list.pkl'
+        image_list_filename = '/atlas/u/nj/iclr2017/imagenet/64x64_0.25/image_list.pkl'
         print image_list_filename
         #image_list_filename = '/atlas/u/dfh13/bedroom_list.pkl'
         if (os.path.isfile(image_list_filename)):
@@ -188,7 +193,7 @@ class DCGAN(object):
         else:
             print "Start finding images"
             start = time.time()
-            self.data_all = find_files("/atlas/u/nj/imagenet/train_64x64/","*.png")
+            self.data_all = find_files("/atlas/u/nj/imagenet/ILSVRC2012_img_train_64x64/","*.JPEG")
             pickle.dump(self.data_all,open(image_list_filename,'wb'))
             print "Finish finding images in", time.time()-start, 's, found',len(self.data_all),'images'
 
@@ -501,5 +506,5 @@ class DCGAN(object):
         #feat_list = np.array(feat_list)
         #np.save('/atlas/u/dfh13/feat_database',feat_list)
         print 'Dumping result'
-        pickle.dump(feat_list,open('/atlas/u/nj/iclr2017/imagenet/64x64_noise/'+self.dataset_name+'_feat_database.pkl','wb'))
+        pickle.dump(feat_list,open('/atlas/u/nj/iclr2017/imagenet/64x64_0.25/'+self.dataset_name+'_feat_database.pkl','wb'))
 
