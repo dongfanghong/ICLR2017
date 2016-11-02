@@ -503,3 +503,16 @@ class DCGAN(object):
         print 'Dumping result'
         pickle.dump(feat_list,open('/atlas/u/nj/iclr2017/imagenet/64x64_noise/'+self.dataset_name+'_feat_database.pkl','wb'))
 
+
+    def extract_features(self, image_file_name_list, out_name):
+        """
+        Part of the contract of this function is that the features spit out should be in the same order
+        as the files are in image_file_name_list
+        """
+        # TODO enforce order consistency between output and image_file_name_list
+
+
+        # TODO see self.retrieve - keep in mind we only extract features with 
+        # the discriminator, so we don't need phi for feature extraction
+
+

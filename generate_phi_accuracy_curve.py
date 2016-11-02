@@ -11,6 +11,53 @@ import time
 import os
 import argparse
 
+from utils import find_files
+
+TEST_DATA_DIR = '/atlas/u/nj/imagenet/ILSVRC2012_img_val_64x64/'
+TEST_DATA_LABELS = '/atlas/u/nj/imagenet/ILSVRC2012_devkit_t12/data/ILSVRC2012_validation_ground_truth.txt'
+
+DOG_TEST_DATA_LABELS = '/atlas/u/nj/imagenet/ILSVRC2012_devkit_t3/data/ILSVRC2012_validation_ground_truth.txt'
+NOT_A_DOG_LABEL_VALUE = -1
+
+# Set flags - MAKE SURE THESE MATCH THE PARAMETERS USED TO CREATE THE MODEL
+# Flags commented out do not matter
+GPU_FRACTION = 0.25
+#EPOCH = 25
+#LEARNING_RATE = 1e-4
+#BETA1 = 0.5
+#TRAIN_SIZE = np.inf
+BATCH_SIZE = 36
+IMAGE_SIZE = 64
+DATASET = 'imagenet'
+#CHECKPOINT_DIR = '/atlas/u/nj/iclr2017/imagenet/test/checkpoints' # This does matter but is passed in as a parameter
+#SAMPLE_DIR = '/atlas/u/nj/iclr2017/imagenet/test/samples'
+#EVAL_DIR = '/atlas/u/nj/iclr2017/imagenet/test/eval'
+#LOG_DIR = '/atlas/u/nj/iclr2017/imagenet/test/logs'
+# IS_TRAIN = True
+IS_CROP = True
+# VISUALIZE = False
+
+def single_extract_feature(checkpoint_dir, phi_param_val):
+  import tf
+  gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=GPU_FRACTION)
+  with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
+
+    dcgan = DCGAN(
+          sess, image_size=IMAGE_SIZE, batch_size=BATCH_SIZE,
+          dataset_name=DATASET, is_crop=IS_CROP,
+          checkpoint_dir=checkpoint_dir)
+    dcgan.load(checkpoint_dir)
+
+    # TODO read all the images from /atlas/u/nj/imagenet/ILSVRC2012_img_val_64x64 in the same order as they are in labels and extract
+    # The features, make sure they get saved in the same order as labels is in
+    file_names_list = find_files(TEST_DATA_DIR, '*.png')
+    # TODO make sure this list is sorted in to correct order    
+
+    dcgan.extract_features(file_names_list, str(phi_param_val) + '_features_' + checkpoint_dir + '.npy')
+
+  pass
+  # TODO see retrieve function in the model.py DCGAN class, this function is to quite right, write your own extract features function
+
 def extract_features():
   # TODO
   # Given the data sets and phi type and parameters, make the features and features file used for the below function
@@ -27,7 +74,8 @@ def accuracy_metric(train_X, train_y, test_X, test_y):
         start = time.time()
         print("Starting accuracy_metric calculation...")
 
-        model = SVC(class_weight='balanced',C=0.5)
+        # TODO: If slow, change the kernel to linear
+        model = SVC(class_weight='balanced', C=0.5, decision_function_shape='ovr')
         #model = sklearn.linear_model.LogisticRegression()
         #model = GradientBoostingClassifier()
 
