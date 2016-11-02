@@ -25,7 +25,7 @@ def resize_and_crop_image(input_file, output_file,
     # Check if image is too small
     if min(img.size) < pixel_size:
         factor = 1
-        min_size = min(img_size)
+        min_size = min(img.size)
         while min_size * factor < pixel_size:
             factor += 1
         img = img.resize((img.size[0] * factor, img.size[1] * factor),

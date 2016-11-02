@@ -10,9 +10,9 @@ import numpy as np
 #############################################################
 
 # Setting and creating (if necessary) directories
-samples_dir = '/atlas/u/nj/iclr2017/imagenet/64x64_0.25/samples'
-eval_dir = '/atlas/u/nj/iclr2017/imagenet/64x64_0.25/eval'
-log_dir = '/atlas/u/nj/iclr2017/imagenet/64x64_0.25/logs'
+samples_dir = '/atlas/u/nj/iclr2017/imagenet/downsample1_64x64/samples'
+eval_dir = '/atlas/u/nj/iclr2017/imagenet/downsample1_64x64/eval'
+log_dir = '/atlas/u/nj/iclr2017/imagenet/downsample1_64x64/logs'
 
 for path in [samples_dir,eval_dir,log_dir]:
     try: 
@@ -184,7 +184,7 @@ class DCGAN(object):
             print(" [!] Load failed...")
 
         #image_list_filename = '/atlas/u/dfh13/faces/face_list.pkl'
-        image_list_filename = '/atlas/u/nj/iclr2017/imagenet/64x64_0.25/image_list.pkl'
+        image_list_filename = '/atlas/u/nj/iclr2017/imagenet/downsample1_64x64/image_list.pkl'
         print image_list_filename
         #image_list_filename = '/atlas/u/dfh13/bedroom_list.pkl'
         if (os.path.isfile(image_list_filename)):
@@ -506,5 +506,5 @@ class DCGAN(object):
         #feat_list = np.array(feat_list)
         #np.save('/atlas/u/dfh13/feat_database',feat_list)
         print 'Dumping result'
-        pickle.dump(feat_list,open('/atlas/u/nj/iclr2017/imagenet/64x64_0.25/'+self.dataset_name+'_feat_database.pkl','wb'))
+        pickle.dump(feat_list,open('/atlas/u/nj/iclr2017/imagenet/downsample1_64x64/'+self.dataset_name+'_feat_database.pkl','wb'))
 
