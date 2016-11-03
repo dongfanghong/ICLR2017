@@ -21,7 +21,7 @@ NOT_A_DOG_LABEL_VALUE = -1
 
 # Set flags - MAKE SURE THESE MATCH THE PARAMETERS USED TO CREATE THE MODEL
 # Flags commented out do not matter
-GPU_FRACTION = 0.16 # was 0.25 during training but lowering so 6 can be run on one GPU, should work since we don't use the generator at all
+GPU_FRACTION = 0.15 # was 0.25 during training but lowering so 6 can be run on one GPU, should work since we don't use the generator at all
 #EPOCH = 25
 #LEARNING_RATE = 1e-4
 #BETA1 = 0.5

@@ -523,7 +523,7 @@ class DCGAN(object):
 
         batch_idxs = int(np.floor(num_data_points / self.batch_size))
         for idx in xrange(batch_idxs):
-            print(out_name, idx, "out of", num_data_points)
+            print(out_name, idx, "out of", batch_idxs)
             batch_files = image_file_name_list[idx*self.batch_size:(idx+1)*self.batch_size]
             # Be aware of what this call to get_image is doing, the image is center cropped to be psizexpsize then resized to 64x64if is_crop is True
             # If is_crop is false then the image is read as is, which will cause problems if the image is anything but 64x64
