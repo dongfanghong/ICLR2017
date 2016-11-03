@@ -42,7 +42,10 @@ extract_feature_lines = None
 extract_features_out_names = None
 
 def single_extract_feature(checkpoint_dir, phi_param_val, out_name=None):
-  import tf
+  print("loading tensorflow and extracting features for: ", checkpoint_dir)
+  import tensorflow as tf
+  from model import DCGAN
+  print("Done importing tensorflow for: ", checkpoint_dir)
   gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=GPU_FRACTION)
   with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
 
@@ -70,6 +73,7 @@ def single_extract_feature(checkpoint_dir, phi_param_val, out_name=None):
     if out_name == None:
        out_name = str(phi_param_val) + '_features.npy',
 
+    print("Starting extraction for: ", checkpoint_dir, phi_param_val, out_name)
     dcgan.extract_features(file_names_list, out_name, IMAGE_SIZE, IS_CROP)
 
 def parse_line(line):
@@ -89,7 +93,7 @@ def single_extract_feature_and_load_line(index):
 
    checkpoint_dir, phi_param = parse_line(line)
 
-   print("Loaded phi: ", phi_param)
+   print("Extract Features: parsed phi ", phi_param)
    single_extract_feature(checkpoint_dir, phi_param, extract_features_out_names[index])
    
 
@@ -115,9 +119,9 @@ def extract_features(extract_features_config_file, run_name):
   features_config_file_name = run_name + "_plot_features_config_file.txt"
 
   features_config_file_content = ""
-  for index, feature_array_name in enumerate(extract_features_out_names.append):
+  for index, feature_array_name in enumerate(extract_features_out_names):
      phi_val = phi_params[index]
-     features_config_file_content += feature_array_name + "," + phi_val + '\n'
+     features_config_file_content += feature_array_name + "," + str(phi_val) + '\n'
 
   print("Writing config file for the classification phase after features are extracted")
 
@@ -130,6 +134,8 @@ def extract_features(extract_features_config_file, run_name):
 
   pool = Pool(EXTRACT_FEATURES_POOL_SIZE)
   pool.map(single_extract_feature_and_load_line, range(len(extract_feature_lines)))
+
+  print("Finished extracting features and returning features_config_file_name")
 
   return features_config_file_name
 
@@ -260,24 +266,29 @@ def extract_and_plot(extract_features_config_file, run_name, labels_file, plot_o
     make_plot_from_features(plot_config_file, labels_file, plot_out_file, plot_title)
 
 if __name__ == "__main__":
+    out_file_default_placeholder = "This is the default and will be changed, you did not set this param"
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
         'run_name', help="Please give different experiments different names")
     parser.add_argument(
         'config_file', help='A file where each line is "[1],[2]\n" where [1] is the checkpoint directory and [2] is the phi value')
-    parse.add_argument(
-        'data_dir', help='The directory with images in it, currently the code expects this to be imagenet format where images are X_<number>.JPEG', default=TEST_DATA_DIR)
     parser.add_argument(
-        'labels_file', help='A numpy array of labels or txt file of labels with one per line, should correspond to the features in each features array', default=TEST_DATA_LABELS)
+        '--out_file', help='The plot file name', default=out_file_default_placeholder)
     parser.add_argument(
-        'out_file', help='The plot file name', default=None)
+        '--title', help="The title of the plot", default=None)
     parser.add_argument(
-        'title', help="The title of the plot", default=None)
+        '--data_dir', help='The directory with images in it, currently the code expects this to be imagenet format where images are X_<number>.JPEG', default=TEST_DATA_DIR)
+    parser.add_argument(
+        '--labels_file', help='A numpy array of labels or txt file of labels with one per line, should correspond to the features in each features array', default=TEST_DATA_LABELS)
     args = parser.parse_args()
 
     out_file = args.out_file
-    if args.out_file == None:
+    if args.out_file == out_file_default_placeholder:
        out_file = args.run_name + "_plot"
+
+    print("Args:")
+    print(args)
 
     global TEST_DATA_DIR
     TEST_DATA_DIR = args.data_dir

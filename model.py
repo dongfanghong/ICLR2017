@@ -7,9 +7,9 @@ from ops import *
 from utils import *
 import numpy as np
 
-samples_dir = '/atlas/u/nj/iclr2017/imagenet/64x64_noise/samples'
-eval_dir = '/atlas/u/nj/iclr2017/imagenet/64x64_noise/eval'
-log_dir = '/atlas/u/nj/iclr2017/imagenet/64x64_noise/logs'
+samples_dir = '/atlas/u/nj/iclr2017/imagenet/pixelrnn_64x64_noise/samples'
+eval_dir = '/atlas/u/nj/iclr2017/imagenet/pixelrnn_64x64_noise/eval'
+log_dir = '/atlas/u/nj/iclr2017/imagenet/pixelrnn_64x64_noise/logs'
 
 for path in [samples_dir,eval_dir,log_dir]:
     try: 
@@ -529,7 +529,9 @@ class DCGAN(object):
             # If is_crop is false then the image is read as is, which will cause problems if the image is anything but 64x64
             img_batch = [get_image(filename, psize, is_crop=is_crop) for filename in batch_files]
             img_batch = np.array(img_batch).astype(np.float32)
+            print("Start run", out_name)
             feat = self.sess.run([feature_pooled],feed_dict={self.patch2:img_batch})
+            print("End run", out_name)
             feat = np.squeeze(feat)
             feat_list.extend(feat)
 
