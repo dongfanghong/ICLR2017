@@ -63,10 +63,8 @@ def single_extract_feature(checkpoint_dir, phi_param_val):
     file_names_list.sort()
     file_names_list = [name for number, name in file_names_list]
 
-    dcgan.extract_features(file_names_list, str(phi_param_val) + '_features_' + checkpoint_dir + '.npy')
+    dcgan.extract_features(file_names_list, str(phi_param_val) + '_features_' + checkpoint_dir + '.npy', IMAGE_SIZE, IS_CROP)
 
-  pass
-  # TODO see retrieve function in the model.py DCGAN class, this function is to quite right, write your own extract features function
 
 def extract_features():
   # TODO

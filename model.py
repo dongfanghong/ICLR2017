@@ -504,15 +504,13 @@ class DCGAN(object):
         pickle.dump(feat_list,open('/atlas/u/nj/iclr2017/imagenet/64x64_noise/'+self.dataset_name+'_feat_database.pkl','wb'))
 
 
-    def extract_features(self, image_file_name_list, out_name):
+    def extract_features(self, image_file_name_list, out_name, image_size, is_crop):
         """
         Part of the contract of this function is that the features spit out should be in the same order
         as the files are in image_file_name_list
         """
-        # TODO enforce order consistency between output and image_file_name_list
-
-        print('Running extract features')
-        psize=120 # TODO remove this
+        print('Running extract features: ', out_name)
+        psize = image_size # This is the center crop size of the original before being resized to 64x64
 
         feature = self.encoder_test(self.patch2)
         print feature.get_shape()
@@ -521,28 +519,39 @@ class DCGAN(object):
 
         feat_list = []
 
-        # TODO handle batch size not being a factor of the data size
         num_data_points = len(image_file_name_list)
 
-        batch_idxs = num_data_points/self.batch_size
+        batch_idxs = int(np.floor(num_data_points / self.batch_size))
         for idx in xrange(batch_idxs):
             print(out_name, idx, "out of", num_data_points)
             batch_files = image_file_name_list[idx*self.batch_size:(idx+1)*self.batch_size]
-            # TODO the calls to get_image need to be changed to properly reflect the lack of need for a phi
-            img_batch = [get_image(filename, psize, is_crop=True) for filename in batch_files]
+            # Be aware of what this call to get_image is doing, the image is center cropped to be psizexpsize then resized to 64x64if is_crop is True
+            # If is_crop is false then the image is read as is, which will cause problems if the image is anything but 64x64
+            img_batch = [get_image(filename, psize, is_crop=is_crop) for filename in batch_files]
             img_batch = np.array(img_batch).astype(np.float32)
             feat = self.sess.run([feature_pooled],feed_dict={self.patch2:img_batch})
             feat = np.squeeze(feat)
             feat_list.extend(feat)
-            #img_list.extend(batch_files)
 
-        #feat_list = np.array(feat_list)
-        #np.save('/atlas/u/dfh13/feat_database',feat_list)
-        # TODO change how the output is saved
-        print 'Dumping result'
-        pickle.dump(feat_list,open('/atlas/u/nj/iclr2017/imagenet/64x64_noise/'+self.dataset_name+'_feat_database.pkl','wb'))
+        # handle batch size not being a factor of the data size
+        remaining_images = num_data_points % self.batch_size
+        if not (remaining_images == 0):
+          print("Extracting for remaining images...")
+          batch_files = image_file_name_list[-remaining_images:]
+          # Be aware of what this call to get_image is doing, the image is center cropped to be psizexpsize then resized to 64x64if is_crop is True
+          # If is_crop is false then the image is read as is, which will cause problems if the image is anything but 64x64
+          img_batch = [get_image(filename, psize, is_crop=is_crop) for filename in batch_files]
+          for _ in range(self.batch_size - remaining_images):
+             img_batch.append(np.zeros_like(img_batch[0]))
+          img_batch = np.array(img_batch).astype(np.float32)
+          feat = self.sess.run([feature_pooled],feed_dict={self.patch2:img_batch})
+          feat = np.squeeze(feat)
+          feat = feat[:remaining_images, :]
+          feat_list.extend(feat)
 
-        # TODO see self.retrieve - keep in mind we only extract features with 
-        # the discriminator, so we don't need phi for feature extraction
+        print("Saving result")
+        feat_list = np.array(feat_list)
+        np.save(out_name,feat_list)
+
 
 
