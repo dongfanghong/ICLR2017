@@ -529,16 +529,14 @@ class DCGAN(object):
             # If is_crop is false then the image is read as is, which will cause problems if the image is anything but 64x64
             img_batch = [get_image(filename, psize, is_crop=is_crop) for filename in batch_files]
             img_batch = np.array(img_batch).astype(np.float32)
-            print("Start run", out_name)
             feat = self.sess.run([feature_pooled],feed_dict={self.patch2:img_batch})
-            print("End run", out_name)
             feat = np.squeeze(feat)
             feat_list.extend(feat)
 
         # handle batch size not being a factor of the data size
         remaining_images = num_data_points % self.batch_size
         if not (remaining_images == 0):
-          print("Extracting for remaining images...")
+          print(out_name, "Extracting for remaining images...")
           batch_files = image_file_name_list[-remaining_images:]
           # Be aware of what this call to get_image is doing, the image is center cropped to be psizexpsize then resized to 64x64if is_crop is True
           # If is_crop is false then the image is read as is, which will cause problems if the image is anything but 64x64
@@ -551,7 +549,7 @@ class DCGAN(object):
           feat = feat[:remaining_images, :]
           feat_list.extend(feat)
 
-        print("Saving result")
+        print(out_name, "Saving result")
         feat_list = np.array(feat_list)
         np.save(out_name,feat_list)
 
