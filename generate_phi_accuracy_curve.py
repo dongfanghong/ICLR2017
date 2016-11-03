@@ -21,7 +21,7 @@ NOT_A_DOG_LABEL_VALUE = -1
 
 # Set flags - MAKE SURE THESE MATCH THE PARAMETERS USED TO CREATE THE MODEL
 # Flags commented out do not matter
-GPU_FRACTION = 0.25
+GPU_FRACTION = 0.16 # was 0.25 during training but lowering so 6 can be run on one GPU, should work since we don't use the generator at all
 #EPOCH = 25
 #LEARNING_RATE = 1e-4
 #BETA1 = 0.5
@@ -37,7 +37,11 @@ DATASET = 'imagenet'
 IS_CROP = True
 # VISUALIZE = False
 
-def single_extract_feature(checkpoint_dir, phi_param_val):
+EXTRACT_FEATURES_POOL_SIZE = int(np.floor(1.0/GPU_FRACTION))
+extract_feature_lines = None
+extract_features_out_names = None
+
+def single_extract_feature(checkpoint_dir, phi_param_val, out_name=None):
   import tf
   gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=GPU_FRACTION)
   with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
@@ -63,13 +67,75 @@ def single_extract_feature(checkpoint_dir, phi_param_val):
     file_names_list.sort()
     file_names_list = [name for number, name in file_names_list]
 
-    dcgan.extract_features(file_names_list, str(phi_param_val) + '_features_' + checkpoint_dir + '.npy', IMAGE_SIZE, IS_CROP)
+    if out_name == None:
+       out_name = str(phi_param_val) + '_features.npy',
 
+    dcgan.extract_features(file_names_list, out_name, IMAGE_SIZE, IS_CROP)
 
-def extract_features():
-  # TODO
+def parse_line(line):
+   split_line = line.split(',')
+   assert (len(split_line) == 2), "The extract_features file should have one comma per line"
+   assert os.path.exists(split_line[0]), "One of the checkpoint paths supplied does not exists"
+
+   checkpoint_dir = split_line[0]
+
+   if split_line[1][-1] == '\n':
+     split_line[1] = split_line[1][:-1]
+   phi_param = float(split_line[1])
+   return checkpoint_dir, phi_param
+
+def single_extract_feature_and_load_line(index):
+   line = extract_feature_lines[index]
+
+   checkpoint_dir, phi_param = parse_line(line)
+
+   print("Loaded phi: ", phi_param)
+   single_extract_feature(checkpoint_dir, phi_param, extract_features_out_names[index])
+   
+
+def extract_features(extract_features_config_file, run_name):
+
+  print("Extracting features using pool size: ", EXTRACT_FEATURES_POOL_SIZE)
+  global extract_feature_lines, extract_features_out_names
+
+  extract_feature_lines = []
+  extract_features_out_names = []
+  phi_params = []
+  with open(extract_features_config_file) as f:
+     for line in f:
+        extract_feature_lines.append(line)
+        checkpoint_dir, phi_param = parse_line(line)
+        phi_params.append(phi_param)
+        extract_features_out_names.append(run_name + "_" + str(phi_param) + "_features.npy")
+
+  print("Read extract features input file")
+  print(extract_features_config_file)
+
   # Given the data sets and phi type and parameters, make the features and features file used for the below function
-  pass
+  features_config_file_name = run_name + "_plot_features_config_file.txt"
+
+  features_config_file_content = ""
+  for index, feature_array_name in enumerate(extract_features_out_names.append):
+     phi_val = phi_params[index]
+     features_config_file_content += feature_array_name + "," + phi_val + '\n'
+
+  print("Writing config file for the classification phase after features are extracted")
+
+  with open(features_config_file_name, 'w') as f:
+     f.write(features_config_file_content)
+
+  print("Creating process pool for the following lines:")
+  print(extract_feature_lines)
+  print(extract_features_out_names)
+
+  pool = Pool(EXTRACT_FEATURES_POOL_SIZE)
+  pool.map(single_extract_feature_and_load_line, range(len(extract_feature_lines)))
+
+  return features_config_file_name
+
+#############################################################################################
+################################# PLOTTING CODE SECTION #####################################
+#############################################################################################
 
 """
 These variables and functions must be defined at the top level to work with the pool
@@ -189,20 +255,34 @@ def make_plot_from_features(features_file, labels_file, out_file_name="phi_plot"
     plt.title(title)
   plt.savefig(out_file_name)
   
-
+def extract_and_plot(extract_features_config_file, run_name, labels_file, plot_out_file, plot_title):
+    plot_config_file = extract_features(extract_features_config_file, run_name)
+    make_plot_from_features(plot_config_file, labels_file, plot_out_file, plot_title)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        'features_file', help='A file where each line is "[1],[2]\n" where [1] is the path to a numpy array of features and [2] is the phi value')
+        'run_name', help="Please give different experiments different names")
     parser.add_argument(
-        'labels_file', help='A numpy array of labels, should correspond to the features in each features array')
+        'config_file', help='A file where each line is "[1],[2]\n" where [1] is the checkpoint directory and [2] is the phi value')
+    parse.add_argument(
+        'data_dir', help='The directory with images in it, currently the code expects this to be imagenet format where images are X_<number>.JPEG', default=TEST_DATA_DIR)
     parser.add_argument(
-        'out_file', help='The plot file name', default="phi_plot")
+        'labels_file', help='A numpy array of labels or txt file of labels with one per line, should correspond to the features in each features array', default=TEST_DATA_LABELS)
+    parser.add_argument(
+        'out_file', help='The plot file name', default=None)
     parser.add_argument(
         'title', help="The title of the plot", default=None)
     args = parser.parse_args()
-    make_plot_from_features(args.features_file, args.labels_file, args.out_file, args.title)
+
+    out_file = args.out_file
+    if args.out_file == None:
+       out_file = args.run_name + "_plot"
+
+    global TEST_DATA_DIR
+    TEST_DATA_DIR = args.data_dir
+
+    extract_and_plot(args.config_file, args.run_name, args.labels_file, out_file, args.title)
 
 
 
