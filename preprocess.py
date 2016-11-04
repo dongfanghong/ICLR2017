@@ -97,6 +97,8 @@ def process_images():
     Processes folder of images and saves them.
     """
     t0 = time.time()
+    if not os.path.exists(args.out_dir):
+        os.makedirs(args.out_dir)
     pool = Pool(processes=args.threads)
     for idx, in_fn in enumerate(glob.glob(args.input_dir + '*')):
         pool.apply_async(func=process_image, args=(idx, in_fn, t0))

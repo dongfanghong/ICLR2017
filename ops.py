@@ -8,7 +8,7 @@ class batch_norm(object):
     """
     Code modification of http://stackoverflow.com/a/33950177
     """
-    def __init__(self, epsilon=1e-5, momentum=0.9, name="batch_norm"):
+    def __init__(self, epsilon=1e-5, momentum=0.9, name='batch_norm'):
         with tf.variable_scope(name):
             self.epsilon = epsilon
             self.momentum = momentum
@@ -20,10 +20,10 @@ class batch_norm(object):
         if train:
             with tf.variable_scope(self.name) as scope:
                 self.beta = tf.get_variable(
-                    "beta", [shape[-1]],
+                    'beta', [shape[-1]],
                     initializer=tf.constant_initializer(0.))
                 self.gamma = tf.get_variable(
-                    "gamma", [shape[-1]],
+                    'gamma', [shape[-1]],
                     initializer=tf.random_normal_initializer(1., 0.02))
                 batch_mean, batch_var = tf.nn.moments(
                     x, [0, 1, 2], name='moments')
@@ -40,20 +40,18 @@ class batch_norm(object):
         return normed
 
 
-def binary_cross_entropy(preds, targets, name=None):
+def binary_cross_entropy(preds, targets, name=None, eps=1e-12):
     """
     Computes binary cross entropy given `preds`.
     For brevity, let `x = `, `z = targets`.  The logistic loss is
-
         loss(x, z) = - sum_i (x[i] * log(z[i]) + (1 - x[i]) * log(1 - z[i]))
     Args:
         preds: A `Tensor` of type `float32` or `float64`.
         targets: A `Tensor` of the same type and shape as `preds`.
     """
-    eps = 1e-12
-    with ops.op_scope([preds, targets], name, "bce_loss") as name:
-        preds = ops.convert_to_tensor(preds, name="preds")
-        targets = ops.convert_to_tensor(targets, name="targets")
+    with ops.op_scope([preds, targets], name, 'bce_loss') as name:
+        preds = ops.convert_to_tensor(preds, name='preds')
+        targets = ops.convert_to_tensor(targets, name='targets')
         return tf.reduce_mean(-(targets * tf.log(preds + eps) +
                               (1. - targets) * tf.log(1. - preds + eps)))
 
@@ -69,7 +67,10 @@ def conv_cond_concat(x, y):
 
 
 def conv2d(input_, output_dim, k_h=6, k_w=6, d_h=2, d_w=2, stddev=0.02,
-           name="conv2d"):
+           name='conv2d'):
+    """
+    2d convolution layer.
+    """
     with tf.variable_scope(name):
         w = tf.get_variable(
             'w', [k_h, k_w, input_.get_shape()[-1], output_dim],
@@ -84,7 +85,7 @@ def conv2d(input_, output_dim, k_h=6, k_w=6, d_h=2, d_w=2, stddev=0.02,
 
 
 def deconv2d(input_, output_shape, k_h=6, k_w=6, d_h=2, d_w=2, stddev=0.02,
-             name="deconv2d", with_w=False):
+             name='deconv2d', with_w=False):
     with tf.variable_scope(name):
         # filter : [height, width, output_channels, in_channels]
         w = tf.get_variable(
@@ -108,7 +109,10 @@ def deconv2d(input_, output_shape, k_h=6, k_w=6, d_h=2, d_w=2, stddev=0.02,
             return deconv
 
 
-def lrelu(x, leak=0.2, name="lrelu"):
+def lrelu(x, leak=0.2, name='lrelu'):
+    """
+    Leaky relu.
+    """
     with tf.variable_scope(name):
         f1 = 0.5 * (1 + leak)
         f2 = 0.5 * (1 - leak)
@@ -117,14 +121,17 @@ def lrelu(x, leak=0.2, name="lrelu"):
 
 def linear(input_, output_size, scope=None, stddev=0.02, bias_start=0.0,
            with_w=False):
+    """
+    Implements fully connected linear layer.
+    """
     shape = input_.get_shape().as_list()
-    with tf.variable_scope(scope or "Linear"):
+    with tf.variable_scope(scope or 'Linear'):
         matrix = tf.get_variable(
-            "Matrix", [shape[1], output_size], tf.float32,
+            'Matrix', [shape[1], output_size], tf.float32,
             tf.contrib.layers.xavier_initializer(),
             regularizer=tf.contrib.layers.l2_regularizer(0.01))
         bias = tf.get_variable(
-            "bias", [output_size],
+            'bias', [output_size],
             initializer=tf.constant_initializer(bias_start))
         if with_w:
             return tf.matmul(input_, matrix) + bias, matrix, bias
@@ -140,13 +147,13 @@ def channel_fc(input_, name='channel_fc'):
         matrix = tf.Variable(
             tf.random_uniform(
                 [C, H * W, H * W], minval=-val, maxval=val,
-                dtype=tf.float32), name="matrix")
+                dtype=tf.float32), name='matrix')
         input_reshape = tf.reshape(input_, [B, H * W, C])
         input_rotate = tf.transpose(input_reshape, [2, 0, 1])
         out = tf.batch_matmul(input_rotate, matrix)
         out = tf.transpose(out, [1, 2, 0])
         bias = tf.get_variable(
-            "bias", [H * W, C], initializer=tf.constant_initializer(0.0))
+            'bias', [H * W, C], initializer=tf.constant_initializer(0.0))
         out = tf.nn.relu(out + bias)
         out = tf.reshape(out, [B, H, W, C])
         return out

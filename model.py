@@ -8,38 +8,25 @@ import numpy as np
 
 #############################################################
 
-# Setting and creating (if necessary) directories
-samples_dir = '/atlas/u/nj/iclr2017/imagenet/downsample6_64x64/samples'
-eval_dir = '/atlas/u/nj/iclr2017/imagenet/downsample6_64x64/eval'
-log_dir = '/atlas/u/nj/iclr2017/imagenet/downsample6_64x64/logs'
-# Creating directories
-for path in [samples_dir, eval_dir, log_dir]:
-    try:
-        os.makedirs(path)
-    except OSError:
-        if not os.path.isdir(path):
-            raise
-
-#############################################################
-
 
 class DCGAN(object):
-    def __init__(self, sess, image_size=64, is_crop=True,
-                 batch_size=36, sample_size=64, image_shape=[64, 64, 3],
-                 y_dim=None, z_dim=100, gf_dim=64, df_dim=64,
-                 gfc_dim=1024, dfc_dim=1024, c_dim=3, dataset_name='default',
-                 checkpoint_dir=None):
+    def __init__(
+        self, sess, image_size=64, is_crop=True, batch_size=36, sample_size=36,
+        y_dim=None, z_dim=100, gf_dim=64, df_dim=64, gfc_dim=1024,
+        dfc_dim=1024, c_dim=3, dataset_name='default', checkpoint_dir=None,
+        sample_dir=None, eval_dir=None, log_dir=None, down_sample_level=6,
+            image_list=None):
         """
+        Creates a conditional DCGAN model.
         Args:
             sess: TensorFlow session
             image_size: The size of the image. [64]
             is_crop: NOT SURE YET
             batch_size: The size of batch. Should be specified
             before training. [36]
-            sample_size: NOT SURE YET
-            image_shape: NOTE SURE YET
-            y_dim: (optional) Dimension of dim for y. [None]
-            z_dim: (optional) Dimension of dim for Z. [100]
+            sample_size: The size of the samples to display. [36]
+            y_dim: (optional) Dimension of y, conditional label info. [None]
+            z_dim: (optional) Dimension of Z, random code. [100]
             gf_dim: (optional) Dimension of generator filters in first conv
             layer. [64]
             df_dim: (optional) Dimension of discriminator filters in first conv
@@ -51,13 +38,17 @@ class DCGAN(object):
             c_dim: (optional) Dimension of image color. [3]
             dataset_name: NOT SURE YET
             checkpoint_dir: Directory to save checkpoints. [None]
+            sample_dir: Directory to save samples
+            eval_dir: Directory to save eval NOT SURE YET
+            log_dir: Directory to save logs
+            down_sample_level: How much to downsample
+            image_list: Pickle file listing image filenames
         """
         self.sess = sess
         self.image_size = image_size
         self.is_crop = is_crop
         self.batch_size = batch_size
         self.sample_size = sample_size
-        self.image_shape = image_shape
         self.y_dim = y_dim
         self.z_dim = z_dim
         self.gf_dim = gf_dim
@@ -67,7 +58,12 @@ class DCGAN(object):
         self.c_dim = c_dim
         self.dataset_name = dataset_name
         self.checkpoint_dir = checkpoint_dir
-        # Size of validation set
+        self.sample_dir = sample_dir
+        self.eval_dir = eval_dir
+        self.log_dir = log_dir
+        self.down_sample_level = down_sample_level
+        self.image_list_filename = image_list
+        self.image_shape = [self.image_size, self.image_size, 3]
         self.validation_size = self.batch_size * 30
         # Batch normalization: deals with poor initialization and
         # helps gradient flow
@@ -85,9 +81,6 @@ class DCGAN(object):
         self.e_bn1_2 = ops.batch_norm(name='e_bn1_2')
         self.e_bn2 = ops.batch_norm(name='e_bn2')
         self.e_bn3 = ops.batch_norm(name='e_bn3')
-        # SOMETHING SOMETHING NOT SURE YET
-        self.first_encoder = True
-        self.first_encoder2 = True
         # Build the models
         self.build_model()
 
@@ -95,37 +88,27 @@ class DCGAN(object):
         """
         Sets up the generator and discriminator.
         """
-        # Data to condition on
+        # If we want to condition on label information
         if self.y_dim:
             self.y = tf.placeholder(tf.float32, [None, self.y_dim], name='y')
-        '''
-        # Old stuff: Real images and sample images
-        self.images = tf.placeholder(
-            tf.float32, [self.batch_size] + self.image_shape,
-            name='real_images')
-        self.sample_images= tf.placeholder(
-            tf.float32, [self.sample_size] + self.image_shape,
-            name='sample_images')
-        '''
         # Patches: patch1 is conditional data, patch2 is full image
         self.patch1 = tf.placeholder(
             tf.float32, [self.batch_size] + self.image_shape, name='patch1')
         self.patch2 = tf.placeholder(
             tf.float32, [self.batch_size] + self.image_shape, name='patch2')
         # Random code and summary
-        self.z = tf.placeholder(tf.float32, [self.batch_size, self.z_dim],
-                                name='z')
-        self.z_sum = tf.histogram_summary("z", self.z)
+        self.z = tf.placeholder(
+            tf.float32, [self.batch_size, self.z_dim], name='z')
+        self.z_sum = tf.histogram_summary('z', self.z)
         # Generator
         self.G = self.generator(self.patch1, self.z)
         # Discriminator
-        self.D, self.D_logits = self.discriminator(self.patch1, self.patch2)
+        self.D, self.D_logits = self.discriminator(self.patch2)
         self.sampler = self.sampler(self.patch1, self.z)
-        self.D_, self.D_logits_ = self.discriminator(
-            self.patch1, self.G, reuse=True)
-        self.d_sum = tf.histogram_summary("d", self.D)
-        self.d__sum = tf.histogram_summary("d_", self.D_)
-        self.G_sum = tf.image_summary("G", self.G)
+        self.D_, self.D_logits_ = self.discriminator(self.G, reuse=True)
+        self.d_sum = tf.histogram_summary('d', self.D)
+        self.d__sum = tf.histogram_summary('d_', self.D_)
+        self.G_sum = tf.image_summary('G', self.G)
         self.d_loss_real = tf.reduce_mean(
             tf.nn.sigmoid_cross_entropy_with_logits(
                 self.D_logits, tf.ones_like(self.D)))
@@ -136,21 +119,21 @@ class DCGAN(object):
             tf.nn.sigmoid_cross_entropy_with_logits(
                 self.D_logits_, tf.ones_like(self.D_)))
         self.l1_error = tf.abs(self.G-self.patch2)  # *self.mask
-        self.error_sum = tf.image_summary("l1_error", self.l1_error)
+        self.error_sum = tf.image_summary('l1_error', self.l1_error)
         # print self.l1_error.get_shape()
         self.g_loss_l1 = tf.reduce_mean(self.l1_error)
         # /tf.reduce_mean(self.mask)
         self.d_loss_real_sum = tf.scalar_summary(
-            "d_loss_real", self.d_loss_real)
+            'd_loss_real', self.d_loss_real)
         self.d_loss_fake_sum = tf.scalar_summary(
-            "d_loss_fake", self.d_loss_fake)
-        self.g_loss_adv_sum = tf.scalar_summary("g_loss_adv", self.g_loss_adv)
-        self.g_loss_l1_sum = tf.scalar_summary("g_loss_l1", self.g_loss_l1)
+            'd_loss_fake', self.d_loss_fake)
+        self.g_loss_adv_sum = tf.scalar_summary('g_loss_adv', self.g_loss_adv)
+        self.g_loss_l1_sum = tf.scalar_summary('g_loss_l1', self.g_loss_l1)
         self.d_loss = self.d_loss_real + self.d_loss_fake
         self.g_loss = 0.01 * self.g_loss_adv + self.g_loss_l1
         # self.g_loss = self.g_loss_l1
-        self.g_loss_sum = tf.scalar_summary("g_loss", self.g_loss)
-        self.d_loss_sum = tf.scalar_summary("d_loss", self.d_loss)
+        self.g_loss_sum = tf.scalar_summary('g_loss', self.g_loss)
+        self.d_loss_sum = tf.scalar_summary('d_loss', self.d_loss)
         t_vars = tf.trainable_variables()
         self.d_vars = [var for var in t_vars if 'd_' in var.name]
         self.g_vars = [var for var in t_vars if 'g_' in var.name]
@@ -160,7 +143,6 @@ class DCGAN(object):
         """
         Train DCGAN
         """
-        # np.random.shuffle(data)
         d_optim = tf.train.AdamOptimizer(
             0.25 * config.learning_rate, beta1=config.beta1).minimize(
             self.d_loss, var_list=self.d_vars)
@@ -177,27 +159,25 @@ class DCGAN(object):
         tf.initialize_all_variables().run()
         self.saver = tf.train.Saver()
         self.sum = tf.merge_all_summaries()
-        self.writer = tf.train.SummaryWriter(log_dir, self.sess.graph)
+        self.writer = tf.train.SummaryWriter(self.log_dir, self.sess.graph)
         if False and self.load(self.checkpoint_dir):
-            print(" [*] Load SUCCESS")
+            print(' [*] Load SUCCESS')
         else:
-            print(" [!] Load failed...")
+            print(' [!] Load failed...')
         # Get list of images
-        # image_list_filename = '/atlas/u/dfh13/faces/face_list.pkl'
-        image_list_filename = \
-            '/atlas/u/nj/iclr2017/imagenet/downsample6_64x64/image_list.pkl'
-        print image_list_filename
-        # image_list_filename = '/atlas/u/dfh13/bedroom_list.pkl'
-        if (os.path.isfile(image_list_filename)):
-            self.data_all = pickle.load(open(image_list_filename, 'rb'))
+        # self.image_list_filename = '/atlas/u/dfh13/faces/face_list.pkl'
+        print self.image_list_filename
+        # self.image_list_filename = '/atlas/u/dfh13/bedroom_list.pkl'
+        if (os.path.isfile(self.image_list_filename)):
+            self.data_all = pickle.load(open(self.image_list_filename, 'rb'))
             print len(self.data_all)
         else:
-            print "Start finding images"
+            print 'Start finding images'
             start = time.time()
             self.data_all = utils.find_files(
-                "/atlas/u/nj/imagenet/ILSVRC2012_img_train_64x64/", "*.JPEG")
-            pickle.dump(self.data_all, open(image_list_filename, 'wb'))
-            print ("Finish finding images in", time.time() - start,
+                '/atlas/u/nj/lsun/small/train/', '*.JPEG')
+            pickle.dump(self.data_all, open(self.image_list_filename, 'wb'))
+            print ('Finish finding images in', time.time() - start,
                    's, found', len(self.data_all), 'images')
 
         def train_loop():
@@ -207,10 +187,10 @@ class DCGAN(object):
                 len(self.data_all) - self.validation_size:len(self.data_all)]
             self.sample_files = self.validation_files[:self.batch_size]
             sample_patch1, sample_patch2 = utils.get_patches_batch(
-                self.sample_files, utils.get_patches)
+                self.sample_files, utils.get_patches, self.down_sample_level)
             # sample_images = np.array(sample).astype(np.float32)
             data = self.data_all[:len(self.data_all) - self.validation_size]
-            counter = 1
+            counter = 0
             start_time = time.time()
             for epoch in xrange(config.epoch):
                 # data = glob(os.path.join("./data", config.dataset, "*.JPEG"))
@@ -225,7 +205,7 @@ class DCGAN(object):
                     # start = time.time()
                     g_optim = g_optim_tot
                     patch1_batch, patch2_batch = utils.get_patches_batch(
-                        batch_files, utils.get_patches)
+                        batch_files, utils.get_patches, self.down_sample_level)
                     # print 'load time:', time.time()-start
                     # batch_images = np.array(batch).astype(np.float32)
                     batch_z = np.random.uniform(
@@ -240,13 +220,13 @@ class DCGAN(object):
                                 self.patch1: patch1_batch,
                                 self.patch2: patch2_batch, self.z: batch_z})
                     self.writer.add_summary(summary_str, counter)
-                    flag = errG_l1 < 0.1
                     # print 'eval time:', time.time()-start
                     counter += 1
                     print (
-                        "Epoch: [%2d] [%4d/%4d] time: %4.4f" % (
+                        'Epoch: [%2d] [%4d/%4d] time: %4.4f' % (
                             epoch, idx, batch_idxs, time.time() - start_time),
-                        errD_fake, errD_real, errG_adv, errG_l1)
+                        'fake: {}, real: {}, adv: {}, l1: {}'.format(
+                            errD_fake, errD_real, errG_adv, errG_l1))
                     errD_fake, errG_adv, _ = self.sess.run(
                         [self.d_loss_fake, self.g_loss_adv, g_optim],
                         feed_dict={
@@ -292,8 +272,8 @@ class DCGAN(object):
                     # self.dx: dx_batch, self.dy: dy_batch, self.z: batch_z})
                     # errG = self.g_loss.eval({self.patch1: patch1_batch,
                     # self.dx: dx_batch, self.dy: dy_batch, self.z: batch_z})
-                    if np.mod(counter, 30) == 1:
-                        print "Generating samples"
+                    if np.mod(counter, 100) == 1:
+                        print 'Generating samples'
                         samples, loss_l1 = self.sess.run(
                             [self.sampler, self.g_loss_l1],
                             feed_dict={
@@ -301,19 +281,19 @@ class DCGAN(object):
                                 self.patch2: sample_patch2, self.z: batch_z})
                         utils.save_images(
                             samples, [6, 6],
-                            samples_dir + '/test_%s_%s_synthesized.png'
+                            self.sample_dir + '/test_%s_%s_synthesized.png'
                             % (epoch, idx))
                         utils.save_images(
                             sample_patch1, [6, 6],
-                            samples_dir + '/test_%s_%s_org.png'
+                            self.sample_dir + '/test_%s_%s_org.png'
                             % (epoch, idx))
                         utils.save_images(
                             sample_patch2, [6, 6],
-                            samples_dir + '/test_%s_%s_target.png'
+                            self.sample_dir + '/test_%s_%s_target.png'
                             % (epoch, idx))
-                        print ("[Sample] g_loss_l1: %.8f" % (loss_l1))
-                    if np.mod(counter, 30) == 1:
-                        print "Training results"
+                        print ('[Sample] g_loss_l1: %.8f' % (loss_l1))
+                    if np.mod(counter, 100) == 1:
+                        print 'Training results'
                         samples, loss_l1 = self.sess.run(
                             [self.sampler, self.g_loss_l1],
                             feed_dict={
@@ -321,17 +301,17 @@ class DCGAN(object):
                                 self.patch2: patch2_batch, self.z: batch_z})
                         utils.save_images(
                             samples, [6, 6],
-                            samples_dir + '/train_%s_%s_synthesized.png'
+                            self.sample_dir + '/train_%s_%s_synthesized.png'
                             % (epoch, idx))
                         utils.save_images(
                             patch1_batch, [6, 6],
-                            samples_dir + '/train_%s_%s_org.png'
+                            self.sample_dir + '/train_%s_%s_org.png'
                             % (epoch, idx))
                         utils.save_images(
                             patch2_batch, [6, 6],
-                            samples_dir + '/train_%s_%s_target.png'
+                            self.sample_dir + '/train_%s_%s_target.png'
                             % (epoch, idx))
-                        print ("[Sample] g_loss_l1: %.8f" % (loss_l1))
+                        print ('[Sample] g_loss_l1: %.8f' % (loss_l1))
                     # if counter == 10:
                         # self.interpolate()
                         # xxx
@@ -339,30 +319,35 @@ class DCGAN(object):
                         # self.test3(epoch,idx)
                     # if np.mod(counter, 100) == 1:
                         # self.test2(epoch,idx)
-                    if np.mod(counter, 3000) == 0:
-                        print "Saving checkpoint"
+                    if np.mod(counter, 500) == 0:
+                        print 'Saving checkpoint'
                         self.save(config.checkpoint_dir, counter)
-                        print "Save finished"
+                        print 'Save finished'
         train_loop()
         self.retrieve()
 
-    def discriminator(self, patch1, patch2, reuse=False, y=None):
+    def discriminator(self, patch2, patch1=None, reuse=False, y=None):
+        """
+        Sets up the discriminator. Can either take conditional information
+        or not, depending on whether you feed it in.
+        """
         if reuse:
             tf.get_variable_scope().reuse_variables()
-        if True:
-            # encoded_patch1 = self.encoder(patch1)
-            encoded_patch2 = self.encoder(patch2)
-            joint = encoded_patch2
-            # joint = tf.concat(3,[encoded_patch1,encoded_patch2])
-            h3 = joint
-            h3_reshape = tf.reshape(h3, [self.batch_size, -1])
-            h4 = ops.linear(h3_reshape, 1, 'd_h3_lin')
-            return tf.nn.sigmoid(h4), h4
+        if patch1 is not None:
+            encoded_patch1 = self.encoder_d(patch1, reuse=False, train=True)
+            encoded_patch2 = self.encoder_d(patch2, reuse=True, train=True)
+            h3 = tf.concat(3, [encoded_patch1, encoded_patch2])
+        else:
+            encoded_patch2 = self.encoder_d(patch2, reuse=False, train=True)
+            h3 = encoded_patch2
+        h3_reshape = tf.reshape(h3, [self.batch_size, -1])
+        h4 = ops.linear(h3_reshape, 1, 'd_h3_lin')
+        return tf.nn.sigmoid(h4), h4
 
     def generator(self, patch1, z, y=None):
         if True:
             # project `z` and reshape
-            encoded_patch1 = self.encoder2(patch1)
+            encoded_patch1 = self.encoder_g(patch1, reuse=False)
             self.z_ = ops.linear(
                 tf.concat(1, [z]), self.gf_dim * 8 * 4 * 4, 'g_h0_lin')
             self.h0_z = tf.reshape(
@@ -391,7 +376,7 @@ class DCGAN(object):
         tf.get_variable_scope().reuse_variables()
         if True:
             # project `z` and reshape
-            encoded_patch1 = self.encoder2(patch1)
+            encoded_patch1 = self.encoder_g(patch1, reuse=True)
             h0_z = tf.reshape(
                 ops.linear(
                     tf.concat(1, [z]), self.gf_dim * 8 * 4 * 4, 'g_h0_lin'),
@@ -411,19 +396,19 @@ class DCGAN(object):
             return tf.nn.tanh(h4)
 
     def save(self, checkpoint_dir, step):
-        model_name = "DCGAN.model"
-        model_dir = "%s_%s" % (self.dataset_name, self.batch_size)
-        checkpoint_dir = os.path.join(checkpoint_dir, model_dir)
-        if not os.path.exists(checkpoint_dir):
-            os.makedirs(checkpoint_dir)
-        self.saver.save(self.sess,
-                        os.path.join(checkpoint_dir, model_name),
-                        global_step=step)
+        """
+        Saves checkpoints in checkpoint directory.
+        """
+        model_name = 'DCGAN.model'
+        self.saver.save(
+            self.sess, os.path.join(checkpoint_dir, model_name),
+            global_step=step)
 
     def load(self, checkpoint_dir):
-        print (" [*] Reading checkpoints...")
-        model_dir = "%s_%s" % (self.dataset_name, self.batch_size)
-        checkpoint_dir = os.path.join(checkpoint_dir, model_dir)
+        """
+        Loads checkpoint from checkpoint directory.
+        """
+        print (' [*] Reading checkpoints...')
         ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
         if ckpt and ckpt.model_checkpoint_path:
             ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
@@ -433,42 +418,30 @@ class DCGAN(object):
         else:
             return False
 
-    def encoder(self, image):
+    def encoder_d(self, image, reuse=False, train=False):
+        """
+        Encodes an input array for the discriminator.
+        """
         with tf.variable_scope('encoder'):
-            if self.first_encoder:
-                self.first_encoder = False
-            else:
+            if reuse:
                 tf.get_variable_scope().reuse_variables()
-            h0 = tf.nn.relu(ops.conv2d(image, self.df_dim, name='d_e_h0_conv'))
-            h1 = tf.nn.relu(
-                self.e_bn1(ops.conv2d(
-                    h0, self.df_dim * 2, name='d_e_h1_conv')))
-            h2 = tf.nn.relu(
-                self.e_bn2(ops.conv2d(
-                    h1, self.df_dim * 4, name='d_e_h2_conv')))
-            h3 = tf.nn.relu(
-                self.e_bn3(ops.conv2d(
-                    h2, self.df_dim * 8, name='d_e_h3_conv')))
-            return h3
-
-    def encoder_test(self, image):
-        with tf.variable_scope('encoder'):
-            tf.get_variable_scope().reuse_variables()
             h0 = tf.nn.relu(ops.conv2d(image, self.df_dim, name='d_e_h0_conv'))
             h1 = tf.nn.relu(self.e_bn1(ops.conv2d(
-                h0, self.df_dim * 2, name='d_e_h1_conv'), train=False))
+                h0, self.df_dim * 2, name='d_e_h1_conv'), train=train))
             h2 = tf.nn.relu(self.e_bn2(ops.conv2d(
-                h1, self.df_dim * 4, name='d_e_h2_conv'), train=False))
+                h1, self.df_dim * 4, name='d_e_h2_conv'), train=train))
             h3 = tf.nn.relu(self.e_bn3(ops.conv2d(
-                h2, self.df_dim * 8, name='d_e_h3_conv'), train=False))
+                h2, self.df_dim * 8, name='d_e_h3_conv'), train=train))
             return h3
 
-    def encoder2(self, image):
+    def encoder_g(self, image, reuse=False):
+        """
+        Encodes an input array for the generator and sampler.
+        """
         with tf.variable_scope('encoder2'):
-            if self.first_encoder2:
-                self.first_encoder2 = False
-            else:
+            if reuse:
                 tf.get_variable_scope().reuse_variables()
+            # THINK THERE SHOULD BE A NEW BATCHNORM HERE
             h0 = tf.nn.relu(ops.conv2d(image, self.gf_dim, name='g_e_h0_conv'))
             h1 = tf.nn.relu(self.e_bn1(ops.conv2d(
                 h0, self.gf_dim * 2, name='g_e_h1_conv')))
@@ -489,7 +462,7 @@ class DCGAN(object):
             len(self.data_all) - self.validation_size:len(self.data_all)]
         sample_files = validation_files[:self.batch_size]
         sample_patch1, sample_patch2 = utils.get_patches_batch(
-            self.sample_files, utils.get_patches)
+            self.sample_files, utils.get_patches, self.down_sample_level)
         # batch_z0 = np.random.uniform(
         # -1, 1, [self.batch_size, self.z_dim]).astype(np.float32)
         # batch_z1 = np.random.uniform(
@@ -507,12 +480,13 @@ class DCGAN(object):
                     self.patch1: sample_patch1, self.patch2: sample_patch2,
                     self.z: batch_z})
             print loss_l1
-            utils.save_images(samples, [6, 6], eval_dir + '/eval_%s.png' % (i))
+            utils.save_images(
+                samples, [6, 6], self.eval_dir + '/eval_%s.png' % (i))
 
     def retrieve(self):
         print 'Running retrieval task'
         psize = 120
-        feature = self.encoder_test(self.patch2)
+        feature = self.encoder_d(self.patch2, reuse=True, train=False)
         print feature.get_shape()
         feature_pooled = tf.nn.max_pool(
             feature, ksize=[1, 4, 4, 1], strides=[1, 1, 1, 1], padding='VALID')
@@ -537,5 +511,5 @@ class DCGAN(object):
         print 'Dumping result'
         pickle.dump(
             feat_list, open(
-                '/atlas/u/nj/iclr2017/imagenet/downsample6_64x64/' +
+                '/atlas/u/nj/iclr2017/lsun/' +
                 self.dataset_name + '_feat_database.pkl', 'wb'))

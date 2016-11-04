@@ -28,8 +28,8 @@ def center_crop(x, crop_h, crop_w=None, resize_w=64):
     if crop_w is None:
         crop_w = crop_h
     h, w = x.shape[:2]
-    j = int(round((h - crop_h)/2.))
-    i = int(round((w - crop_w)/2.))
+    j = int(round((h - crop_h) / 2.))
+    i = int(round((w - crop_w) / 2.))
     crop = scipy.misc.imresize(
         x[j:j + crop_h, i:i + crop_w], [resize_w, resize_w])
     return crop
@@ -39,7 +39,6 @@ def transform(image, npx=64, is_crop=True):
     """
     Either crops an image or returns the original image with pixels scaled to
     be between 0.0-1.0.
-
     Args:
         image: The image to be cropped/returned
         npx: # of pixels width/height of image
@@ -56,21 +55,21 @@ def get_image(image_path, image_size, is_crop=True):
     return transform(imread(image_path), image_size, is_crop)
 
 
-def get_patches(image_path):
+def get_patches(image_path, down_sample_level=6):
     return img2downsampled(
-        imread(image_path), down_sample_level=6, smooth=False)
+        imread(image_path), down_sample_level, smooth=False)
     # return img2noise(imread(image_path), noise_ratio=0.25)
     # return img2patches(imread(image_path),32)
 
 
-def get_patches_batch(filenames, get_patches):
+def get_patches_batch(filenames, get_patches, down_sample_level):
     """
     Puts all of the patches for a batch together in an array.
     """
     patch1_batch = []
     patch2_batch = []
     for filename in filenames:
-        patch1, patch2 = get_patches(filename)
+        patch1, patch2 = get_patches(filename, down_sample_level)
         patch1_batch.append(patch1)
         patch2_batch.append(patch2)
     patch1_batch_array = np.array(patch1_batch, dtype='float32')
@@ -316,16 +315,19 @@ def img2downsampled(img_in, down_sample_level, smooth=False):
     img = img_in.copy()
     h, w = img_in.shape[:2]
     assert h >= 64 and w >= 64
-    assert down_sample_level >= 0 and down_sample_level <= 6
+    assert down_sample_level >= 0 and down_sample_level <= 7
     # assert img.dtype == np.uint8
     down_sample_size = int(np.floor(64 / 2 ** down_sample_level))
     patch2 = scipy.misc.imresize(img, [64, 64])
-    interp = 'bilinear'
-    if not smooth:
-        interp = 'nearest'
-    patch1 = scipy.misc.imresize(
-        patch2, [down_sample_size, down_sample_size], interp=interp)
-    patch1 = scipy.misc.imresize(patch1, [64, 64], interp=interp)
+    if down_sample_level == 7:
+        patch1 = np.zeros_like(patch2)
+    else:
+        interp = 'bilinear'
+        if not smooth:
+            interp = 'nearest'
+        patch1 = scipy.misc.imresize(
+            patch2, [down_sample_size, down_sample_size], interp=interp)
+        patch1 = scipy.misc.imresize(patch1, [64, 64], interp=interp)
     patch1 = patch1.astype('float32') / 127.5 - 1.0
     patch2 = patch2.astype('float32') / 127.5 - 1.0
     return patch1, patch2
