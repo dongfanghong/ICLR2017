@@ -295,7 +295,7 @@ def make_plot_from_features(features_file, labels_file, out_file_name="phi_plot"
   plt.plot(x_points, svm_y_points, 'r', label="SVM")
   plt.plot(x_points, logistic_y_points, 'b', label="Logistic")
   plt.plot(x_points, boosting_y_points, 'g', label="Boosting")
-  plt.legend()
+  plt.legend(loc='best')
   if title is not None:
     assert type(title) == type("")
     plt.title(title)
