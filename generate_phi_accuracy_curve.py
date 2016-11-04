@@ -6,6 +6,7 @@ from sklearn import cross_validation
 from sklearn import model_selection
 from sklearn.svm import SVC
 from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.tree import DecisionTreeClassifier
 from multiprocessing import Pool
 import matplotlib.pyplot as plt
 import time
@@ -193,8 +194,8 @@ def accuracy_metric(train_X, train_y, test_X, test_y):
         model = sklearn.linear_model.LogisticRegression()
         logistic_accuracy = accuracy_metric_impl(train_X, train_y, test_X, test_y, model, name="logistic_regression")
 
-        model = GradientBoostingClassifier()
-        gradient_accuracy = accuracy_metric_impl(train_X, train_y, test_X, test_y, model, name="Gradient boosting classifier")
+        model = DecisionTreeClassifier()
+        gradient_accuracy = accuracy_metric_impl(train_X, train_y, test_X, test_y, model, name="DecisionTreeClassifier")
 
         return SVM_accuracy, logistic_accuracy, gradient_accuracy
 
@@ -295,7 +296,7 @@ def make_plot_from_features(features_file, labels_file, out_file_name="phi_plot"
   boosting_y_points = np.array([y_boosting for x, y_SVM, y_logistic, y_boosting in points])
   plt.plot(x_points, svm_y_points, 'r', label="SVM")
   plt.plot(x_points, logistic_y_points, 'b', label="Logistic")
-  plt.plot(x_points, boosting_y_points, 'g', label="Boosting")
+  plt.plot(x_points, boosting_y_points, 'g', label="Tree")
   plt.legend(loc='best')
   if title is not None:
     assert type(title) == type("")
