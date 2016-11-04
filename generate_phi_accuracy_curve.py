@@ -202,7 +202,7 @@ def cross_validated_accuracy_metric(X, y, num_fold=5, random_seed=0):
     X = X[actual_examples, :]
     y = y[actual_examples]
 
-    kf = cross_validation.KFold(n=y.size, n_folds=num_fold, shuffle=True,
+    kf = cross_validation.StratifiedKFold(n=y.size, n_folds=num_fold, shuffle=True,
                             random_state=random_seed)
     #accuracy_metrics = [list(accuracy_metric(X[train_ind], y[train_ind], X[test_ind], y[test_ind])) for train_ind, test_ind in kf]
     # TODO for test purposes, just try one fold
