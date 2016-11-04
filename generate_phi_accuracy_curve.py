@@ -3,6 +3,7 @@ import scipy.io
 import pickle
 import sklearn.linear_model
 from sklearn import cross_validation
+from sklearn import model_selection
 from sklearn.svm import SVC
 from sklearn.ensemble import GradientBoostingClassifier
 from multiprocessing import Pool
@@ -202,11 +203,11 @@ def cross_validated_accuracy_metric(X, y, num_fold=5, random_seed=0):
     X = X[actual_examples, :]
     y = y[actual_examples]
 
-    kf = cross_validation.StratifiedKFold(n_splits=num_fold, shuffle=True,
+    kf = model_selection.StratifiedKFold(n_splits=num_fold, shuffle=True,
                             random_state=random_seed)
-    #accuracy_metrics = [list(accuracy_metric(X[train_ind], y[train_ind], X[test_ind], y[test_ind])) for train_ind, test_ind in kf]
-    # TODO for test purposes, just try one fold
-    for train_ind, test_ind in kf:
+    #accuracy_metrics = [list(accuracy_metric(X[train_ind], y[train_ind], X[test_ind], y[test_ind])) for train_ind, test_ind in kf.split(X, y)]
+    # for speed purposes, just try one fold
+    for train_ind, test_ind in kf.split(X, y):
        return accuracy_metric(X[train_ind], y[train_ind], X[test_ind], y[test_ind])
     return np.mean(np.array(accuracy_metrics), axis=1)
 
