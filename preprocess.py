@@ -4,24 +4,55 @@ import time
 import argparse
 import os
 from multiprocessing import Pool
+import scipy.misc
 
 
-def resize_and_crop_image(input_file, output_file,
-                          pixel_size=256, fit=True):
+def check_gray_rgba(input_file):
     """
-    Downsample the image.
+    Checks if the image is grayscale or rgba and converts to RGB if necessary.
     """
+    gray = False
+    rgba = False
+    img = scipy.misc.imread(input_file)
+    if len(img.shape) < 3:
+        gray = True
+    elif img.shape[2] == 4:
+        rgba = True
     img = Image.open(input_file)
-    box = (pixel_size, pixel_size)
+    if gray or rgba:
+        img_rgb = Image.new('RGB', img.size)
+        img_rgb.paste(img)
+        img = img_rgb
+    return img
+
+
+def check_image_size(img, box):
+    """
+    Resizes the image if it's too small or too big.
+    """
+    # Check if image is too small
+    if min(img.size) < max(box):
+        factor = 1
+        min_size = min(img.size)
+        while min_size * factor < max(box):
+            factor += 1
+        img = img.resize((img.size[0] * factor, img.size[1] * factor),
+                         Image.BILINEAR)
     # Preresize image with factor 2, 4, 8 and fast algorithm
     factor = 1
     while (img.size[0] / factor > 2 * box[0] and
-           img.size[1] * 2 / factor > 2 * box[1]):
+           img.size[1] / factor > 2 * box[1]):
         factor *= 2
     if factor > 1:
         img.thumbnail((img.size[0] / factor, img.size[1] / factor),
                       Image.NEAREST)
-    # Calculate the cropping box and get the cropped part
+    return img
+
+
+def crop_image(img, box, fit):
+    """
+    Computes cropping box and gets the cropped part.
+    """
     if fit:
         x1 = y1 = 0
         x2, y2 = img.size
@@ -33,10 +64,19 @@ def resize_and_crop_image(input_file, output_file,
         else:
             x1 = int(x2 / 2 - box[0] * hRatio / 2)
             x2 = int(x2 / 2 + box[0] * hRatio / 2)
-        img = img.crop((x1, y1, x2, y2))
-    # Resize the image with best quality algorithm ANTI-ALIAS
-    img.thumbnail(box, Image.ANTIALIAS)
-    # Save it into a file-like object
+    return img.crop((x1, y1, x2, y2))
+
+
+def resize_and_crop_image(input_file, output_file,
+                          pixel_size=64, fit=True):
+    """
+    Downsample the image.
+    """
+    img = check_gray_rgba(input_file)
+    box = (pixel_size, pixel_size)
+    img = check_image_size(img, box)
+    img = crop_image(img, box, fit)
+    img = img.resize(box, Image.ANTIALIAS)
     with open(output_file, 'wb') as out:
         img.save(out, 'JPEG', quality=95)
 
@@ -57,7 +97,9 @@ def process_images():
     Processes folder of images and saves them.
     """
     t0 = time.time()
-    pool = Pool(processes=16)
+    if not os.path.exists(args.out_dir):
+        os.makedirs(args.out_dir)
+    pool = Pool(processes=args.threads)
     for idx, in_fn in enumerate(glob.glob(args.input_dir + '*')):
         pool.apply_async(func=process_image, args=(idx, in_fn, t0))
     pool.close()
@@ -70,7 +112,7 @@ if __name__ == '__main__':
     """
     For example, run:
     python preprocess.py /atlas/u/nj/imagenet/test_orig/
-        /atlas/u/nj/imagenet/test_small/ 64
+        /atlas/u/nj/imagenet/test_small/ 64 --threads 16
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -80,5 +122,8 @@ if __name__ == '__main__':
     parser.add_argument(
         'pixel_size', help='The pixel side length after processing', type=int,
         default=64)
+    parser.add_argument(
+        '--threads', help='The number of threads to use', type=int,
+        default=1)
     args = parser.parse_args()
     process_images()
