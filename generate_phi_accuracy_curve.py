@@ -93,8 +93,12 @@ def single_extract_feature_and_load_line(index):
 
    checkpoint_dir, phi_param = parse_line(line)
 
+   out_name = extract_features_out_names[index]
    print("Extract Features: parsed phi ", phi_param)
-   single_extract_feature(checkpoint_dir, phi_param, extract_features_out_names[index])
+   if not os.path.exists(out_name):
+      single_extract_feature(checkpoint_dir, phi_param, out_name)
+   else:
+      print("Skipping: ", out_name)
    
 
 def extract_features(extract_features_config_file, run_name):
@@ -150,36 +154,67 @@ Every variable and function below this point belongs to make_plot_from_features
 lines = None
 labels = None
 
-def accuracy_metric(train_X, train_y, test_X, test_y):
+def accuracy_metric_impl(train_X, train_y, test_X, test_y, model, name=None):
         start = time.time()
-        print("Starting accuracy_metric calculation...")
-
-        # TODO: If slow, change the kernel to linear
-        model = SVC(class_weight='balanced', C=0.5, decision_function_shape='ovr')
-        #model = sklearn.linear_model.LogisticRegression()
-        #model = GradientBoostingClassifier()
+        print(name, "Starting accuracy_metric calculation...")
+        print(name, "With top 5 accuracy, 1 fold, X train shape: ", train_X.shape, " X test shape: ", test_X.shape)
 
         model.fit(train_X, train_y)
-        pred = model.predict(test_X)
 
-        correct_matrix = (pred == test_y)
-        accuracy = float(correct_matrix.sum()) / float(correct_matrix.size)
+        #pred = model.predict(test_X)
 
-        print("Accuracy: ", accuracy, " Time: ", time.time()-start)
+        #correct_matrix = (pred == test_y)
+        #accuracy = float(correct_matrix.sum()) / float(correct_matrix.size)
+
+        #print("Accuracy: ", accuracy, " Time: ", time.time()-start)
+        #return accuracy
+
+        print(name, "Model classes shape: ", model.classes_.shape)
+        log_prob = model.predict_log_proba(test_X)
+        order = np.argsort(log_prob, axis=1)
+        top_5 = order[:, -5:]
+        total = 0
+        in_top_5 = 0
+        for row_index in range(test_y.shape[0]):
+            total += 1
+            top_5_classes = model.classes_[top_5[row_index, :]]
+            if test_y[row_index] in top_5_classes:
+               in_top_5 += 1
+        accuracy = float(in_top_5)/float(total)
+        print(name, "Top 5 accuracy: ", accuracy, " Time: ", time.time()-start)
         return accuracy
 
 
+def accuracy_metric(train_X, train_y, test_X, test_y):
+        model = SVC(class_weight='balanced', C=0.5, kernel='linear', decision_function_shape='ovr', probability=True)
+        SVM_accuracy = accuracy_metric_impl(train_X, train_y, test_X, test_y, model, name="SVC_linear")
+
+        model = sklearn.linear_model.LogisticRegression()
+        logistic_accuracy = accuracy_metric_impl(train_X, train_y, test_X, test_y, model, name="logistic_regression")
+
+        model = GradientBoostingClassifier()
+        gradient_accuracy = accuracy_metric_impl(train_X, train_y, test_X, test_y, model, name="Gradient boosting classifier")
+
+        return SVM_accuracy, logistic_accuracy, gradient_accuracy
+
 def cross_validated_accuracy_metric(X, y, num_fold=5, random_seed=0):
+    actual_examples = (y != NOT_A_DOG_LABEL_VALUE)
+    X = X[actual_examples, :]
+    y = y[actual_examples]
+
     kf = cross_validation.KFold(n=y.size, n_folds=num_fold, shuffle=True,
                             random_state=random_seed)
-    accuracy_metrics = [accuracy_metric(X[train_ind], y[train_ind], X[test_ind], y[test_ind]) for train_ind, test_ind in kf]
-    return np.mean(accuracy_metrics)
+    #accuracy_metrics = [list(accuracy_metric(X[train_ind], y[train_ind], X[test_ind], y[test_ind])) for train_ind, test_ind in kf]
+    # TODO for test purposes, just try one fold
+    for train_ind, test_ind in kf:
+       return accuracy_metric(X[train_ind], y[train_ind], X[test_ind], y[test_ind])
+    return np.mean(np.array(accuracy_metrics), axis=1)
 
 def compute_one_point(X, labels, phi_param):
       print(X.shape, labels.shape, phi_param)
       print("Computing accuracy for phi parameter: ", phi_param)
       accuracy_metric_score = cross_validated_accuracy_metric(X, labels)
-      return (phi_param, accuracy_metric_score)
+      return (phi_param, accuracy_metric_score[0], accuracy_metric_score[1], accuracy_metric_score[2])
 
 def load_line(index):
     line = lines[index]
@@ -244,18 +279,23 @@ def make_plot_from_features(features_file, labels_file, out_file_name="phi_plot"
   print("Title is: ", title)
 
   points = sorted(points)
-  cache_points = np.zeros((len(points), 2))
+  cache_points = np.zeros((len(points), 4))
   for i, xy in enumerate(points):
-    cache_points[i, 0] = xy[0]
-    cache_points[i, 1] = xy[1]
+     for j in range(4):
+         cache_points[i, j] = xy[j]
 
   np.save(out_file_name + "_points.npy", cache_points)
 
   print("Points:")
   print(points)
-  x_points = np.array([x for x, y in points])
-  y_points = np.array([y for x, y in points])
-  plt.plot(x_points, y_points)
+  x_points = np.array([x for x, y_SVM, y_logistic, y_boosting in points])
+  svm_y_points = np.array([y_SVM for x, y_SVM, y_logistic, y_boosting in points])
+  logistic_y_points = np.array([y_logistic for x, y_SVM, y_logistic, y_boosting in points])
+  boosting_y_points = np.array([y_boosting for x, y_SVM, y_logistic, y_boosting in points])
+  plt.plot(x_points, svm_y_points, 'r', label="SVM")
+  plt.plot(x_points, logistic_y_points, 'b', label="Logistic")
+  plt.plot(x_points, boosting_y_points, 'g', label="Boosting")
+  plt.legend()
   if title is not None:
     assert type(title) == type("")
     plt.title(title)
