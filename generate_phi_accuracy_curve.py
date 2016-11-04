@@ -59,6 +59,8 @@ def single_extract_feature(checkpoint_dir, phi_param_val, out_name=None):
 
     # read all the images from /atlas/u/nj/imagenet/ILSVRC2012_img_val_64x64 in the same order as they are in labels and extract
     # The features, make sure they get saved in the same order as labels is in
+    """
+    For imagenet
     def extract_image_number(image_file_name):
       # exmaple name: ILSVRC2012_val_00000001.JPEG
       number_and_extension = image_file_name.split('_')[-1]
@@ -71,6 +73,10 @@ def single_extract_feature(checkpoint_dir, phi_param_val, out_name=None):
     file_names_list = [(extract_image_number(name), name) for name in file_names_list]
     file_names_list.sort()
     file_names_list = [name for number, name in file_names_list]
+    """
+    # for our custom lsun, things are just in alphabetical order
+    file_names_list = find_files(TEST_DATA_DIR, '*.JPEG')
+    file_names_list.sort()
 
     if out_name == None:
        out_name = str(phi_param_val) + '_features.npy',
@@ -159,18 +165,19 @@ labels = None
 def accuracy_metric_impl(train_X, train_y, test_X, test_y, model, name=None):
         start = time.time()
         print(name, "Starting accuracy_metric calculation...")
-        print(name, "With top 5 accuracy, 1 fold, X train shape: ", train_X.shape, " X test shape: ", test_X.shape)
+        print(name, "With top 1 accuracy, 1 fold, X train shape: ", train_X.shape, " X test shape: ", test_X.shape)
 
         model.fit(train_X, train_y)
 
-        #pred = model.predict(test_X)
+        pred = model.predict(test_X)
 
-        #correct_matrix = (pred == test_y)
-        #accuracy = float(correct_matrix.sum()) / float(correct_matrix.size)
+        correct_matrix = (pred == test_y)
+        accuracy = float(correct_matrix.sum()) / float(correct_matrix.size)
 
-        #print("Accuracy: ", accuracy, " Time: ", time.time()-start)
-        #return accuracy
+        print("Accuracy: ", accuracy, " Time: ", time.time()-start)
+        return accuracy
 
+        """
         print(name, "Model classes shape: ", model.classes_.shape)
         log_prob = model.predict_log_proba(test_X)
         order = np.argsort(log_prob, axis=1)
@@ -185,6 +192,7 @@ def accuracy_metric_impl(train_X, train_y, test_X, test_y, model, name=None):
         accuracy = float(in_top_5)/float(total)
         print(name, "Top 5 accuracy: ", accuracy, " Time: ", time.time()-start)
         return accuracy
+        """
 
 
 def accuracy_metric(train_X, train_y, test_X, test_y):
