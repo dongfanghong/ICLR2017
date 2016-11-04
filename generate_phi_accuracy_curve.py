@@ -311,8 +311,9 @@ def make_plot_from_features(features_file, labels_file, out_file_name="phi_plot"
     plt.title(title)
   plt.savefig(out_file_name)
   
-def extract_and_plot(extract_features_config_file, run_name, labels_file, plot_out_file, plot_title):
-    plot_config_file = extract_features(extract_features_config_file, run_name)
+def extract_and_plot(extract_features_config_file, run_name, labels_file, plot_out_file, plot_title, plot_config_file=None):
+    if plot_config_file == None:
+       plot_config_file = extract_features(extract_features_config_file, run_name)
     make_plot_from_features(plot_config_file, labels_file, plot_out_file, plot_title)
 
 if __name__ == "__main__":
@@ -331,6 +332,9 @@ if __name__ == "__main__":
         '--data_dir', help='The directory with images in it, currently the code expects this to be imagenet format where images are X_<number>.JPEG', default=TEST_DATA_DIR)
     parser.add_argument(
         '--labels_file', help='A numpy array of labels or txt file of labels with one per line, should correspond to the features in each features array', default=TEST_DATA_LABELS)
+    parser.add_argument(
+        '--plot_config_file', help='A file where each line is "[1],[2]\n" where [1] is a numpy array of features and [2] is the phi value.  This will be generated automatically if not supplied by extracting features', default=None)
+
     args = parser.parse_args()
 
     out_file = args.out_file
@@ -343,7 +347,10 @@ if __name__ == "__main__":
     global TEST_DATA_DIR
     TEST_DATA_DIR = args.data_dir
 
-    extract_and_plot(args.config_file, args.run_name, args.labels_file, out_file, args.title)
+    if args.plot_config_file is not None:
+       assert os.path.exists(args.plot_config_file), "Make sure this file exists if you pass it in"
+
+    extract_and_plot(args.config_file, args.run_name, args.labels_file, out_file, args.title, args.plot_config_file)
 
 
 
